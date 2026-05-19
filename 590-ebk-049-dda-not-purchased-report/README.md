@@ -57,7 +57,11 @@ OUTER APPLY (
     ORDER BY t245.tagord            -- lowest-tagord 245 segment
 ) t
 WHERE b.tag = '590'
-  AND b.text LIKE '%DDA%'
+  -- case-sensitive: the subfield delimiter code 'd' ($d "Date…") next to
+  -- content beginning "Da…" forms the literal 'dDa', which a case-insensitive
+  -- LIKE '%DDA%' falsely matches. MARC subfield codes are lowercase, so an
+  -- uppercase 'DDA' can never be forged at a code/content boundary.
+  AND b.text COLLATE Latin1_General_CS_AS LIKE '%DDA%'
   AND EXISTS (                       -- bib has a 049 marking it EBK
         SELECT 1 FROM bib e049
         WHERE e049.[bib#] = b.[bib#]
@@ -77,8 +81,15 @@ ORDER BY b.[bib#], b.tagord;
 - Output columns are exactly `bib#, title, text`. `text` is the DDA `590`
   note; `tagord` is used only in `ORDER BY` (stable order of multiple DDA
   `590`s per bib) and is intentionally not displayed.
-- Matching is case-insensitive substring, relying on the database's default
-  collation (`%DDA%`, `%EBK%`, `%purchase%`).
+- The `DDA` test is **case-sensitive** (`COLLATE Latin1_General_CS_AS`).
+  Demand-Driven Acquisition notes write the acronym uppercase ("…Ebook Central
+  DDA record…"); a case-insensitive `%DDA%` also matched the lowercase
+  sequence `dDa` produced where the `$d` subfield code abuts content starting
+  "Da…" (e.g. `$d`"Date delivered"), pulling in records that have no DDA note.
+- `%EBK%` and `%purchase%` remain case-insensitive (database default
+  collation). `purchase` in particular **must** stay case-insensitive: the
+  exclusion test must still catch a note written "Purchased…"/"Purchase…"
+  with a leading capital, or a purchased record would wrongly appear here.
 - A bib qualifies only when it has a `049` containing `EBK`, a `590`
   containing `DDA`, and **no** `590` containing `purchase`. A record that was
   purchased (has a purchase `590`) is intentionally excluded.
