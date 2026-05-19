@@ -8,6 +8,7 @@ This repository contains specialized SQL queries designed to audit and repair co
 Each solution is contained in its own directory with a dedicated README explaining the logic, the database challenges (such as Cartesian products), and the step-by-step implementation.
 
 * **[049-duplicate-cleanup](./049-duplicate-cleanup)**: Fixes redundant 049 tags where multiple collections exist in the item table but are not represented in the bib record.
+* **[590-ebk-purchase-dda-report](./590-ebk-purchase-dda-report)**: Read-only CSV report of the purchase and DDA `590` note tags on EBK-collection bib records.
 
 ## Best Practices
 1. **Always Audit First**: Every solution includes a `SELECT` statement to verify the targeted records before any changes are made.
