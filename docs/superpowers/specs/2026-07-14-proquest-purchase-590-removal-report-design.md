@@ -1,7 +1,50 @@
 # ProQuest Purchase 590 Removal Report — Design
 
-Date: 2026-07-14
-Status: Approved
+Date: 2026-07-14 (revised 2026-07-15 after requester clarification)
+Status: Query C run 2026-07-15 — awaiting requester's STRICT vs. full decision
+
+## Query C results (2026-07-15)
+
+| `match_class` | bibs | with subscription 590 |
+| --- | --- | --- |
+| `STRICT` | 2,019 | 0 |
+| `BROADENED_ONLY` | 5,915 | 316 |
+| **Total** | **7,934** | **316** |
+
+Notable: `BROADENED_ONLY` (5,915) is far larger than the ~380 first estimated,
+so the full list (7,934) runs ~3× the requester's ~2,400 expectation. This means
+most owned ProQuest purchase notes omit the literal word "ProQuest" and are coded
+only by `SUPO`/`MUPO`. Consequence: `STRICT` alone (2,019) would leave ~5,900
+ProQuest purchase records behind to duplicate against the reload. The full set
+should be sample-checked before deletion. All 316 subscription-hazard records
+fall in `BROADENED_ONLY`; `STRICT` is clean. Options and the hazard were sent to
+the requester by email for the A (strict) vs. B (full) decision.
+
+## Revision note (2026-07-15)
+
+The requester clarified the intent after the first run:
+
+- **Same 590, not two 590s.** "Same row" = both terms in one `590`; "cross row"
+  = terms split across two `590`s **on the same bib** (the adjacent-title pairs
+  in the first report were one bib, not duplicates). The refined rule is
+  **ProQuest AND purchase in the *same* 590, NOT DDA.**
+- **The `~2,400` gap is real and structural.** The strict same-590 rule yields
+  ~2,019 bibs. Some ProQuest purchase notes omit the literal word "ProQuest"
+  (e.g. `Perpetual access ebook purchase; SUPO; autopurchase`); the strict rule
+  cannot see them, leaving ~380 records to duplicate against the fresh ingest.
+- **Decision deferred to data.** Requester chose "show me both counts, decide
+  after," so the report now emits `STRICT` and `BROADENED_ONLY` classes side by
+  side (Query C) rather than committing to one rule.
+- **MUPO ≠ subscription (correction).** The original "delete the MUPO record"
+  premise is wrong: `MUPO`/`SUPO` are both purchase license models and `MUPO`
+  sits on hundreds of owned titles. The real subscription marker is the literal
+  phrase `subscription`. Surfaced as a `has_subscription` warning column, since
+  some broadened matches also carry a live subscription note. See Appendix.
+
+The sections below the divider describe the original (superseded) same-vs-cross
+labelling; the README is the authoritative current spec.
+
+---
 
 ## Goal
 
