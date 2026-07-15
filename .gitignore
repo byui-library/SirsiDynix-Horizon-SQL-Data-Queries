@@ -1,0 +1,14 @@
+# This is a documentation-first repo of SQL scripts and prose READMEs.
+# Query output — real catalog data — must not be committed. Keeping data out
+# avoids publishing patron/collection records and keeps the repo lightweight.
+
+# Report output folders and spreadsheets
+excel reports/
+*/excel reports/
+*.xlsx
+*.xls
+*.csv
+
+# Common local/OS cruft
+Thumbs.db
+.DS_Store
