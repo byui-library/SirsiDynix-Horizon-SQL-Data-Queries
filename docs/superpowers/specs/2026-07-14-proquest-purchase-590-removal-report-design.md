@@ -1,9 +1,42 @@
 # ProQuest Purchase 590 Removal Report — Design
 
-Date: 2026-07-14 (revised 2026-07-15 after requester clarification)
-Status: Query C run 2026-07-15 — awaiting requester's STRICT vs. full decision
+Date: 2026-07-14 (revised 2026-07-15; final rule set 2026-07-15)
+Status: Final rule — any-590 ProQuest + purchase, DDA included. 2,117 bibs.
 
-## Query C results (2026-07-15)
+## Final rule (2026-07-15, second requester reply)
+
+After reviewing the STRICT/BROADENED spreadsheet, the requester settled the rule:
+
+> "It doesn't matter whether 'ProQuest' and 'purchase' are on the same 590 or two
+> 590s. As long as both are present — in one 590 or in two — it captures what I
+> need. Multiple 590s show the progression of a title's status over time (e.g.
+> DDA in one 590, purchase in a second = added as DDA, later purchased)."
+
+Resulting rule = the **original broad rule, with the DDA exclusion removed**:
+
+- Qualify: EBK item **and** some `590` with `ProQuest` **and** some `590` with
+  `purchase`. One 590 or several — no same-590 requirement.
+- **No `DDA` exclusion** — DDA-then-purchased records are explicitly in scope.
+- Literal `ProQuest` + `purchase` (no `SUPO`/`MUPO` broadening; that lever is
+  documented in the README coverage note if literal proves too narrow).
+
+Counts (from the first Query B CSV, which was generated with exactly this rule):
+
+| `match_type` | bibs |
+| --- | --- |
+| `SAME_ROW` (one 590 has both) | 2,028 |
+| `CROSS_ROW` (split across 590s) | 89 |
+| **Total (delete-list size)** | **2,117** |
+
+Of the 2,117: **95** also carry a DDA 590 (kept — the progression case), **6**
+also carry a subscription 590 (`has_subscription` hazard — recommend excluding
+from the delete batch). `match_type`, `has_dda`, `has_subscription` are
+descriptive columns only; they do not filter the list.
+
+Superseded: the STRICT vs. BROADENED_ONLY split and the record-level NOT DDA
+filter below. The README is the authoritative current spec.
+
+## Query C results (2026-07-15) — superseded, retained for history
 
 | `match_class` | bibs | with subscription 590 |
 | --- | --- | --- |

@@ -34,61 +34,65 @@ can never multiply the output.
 A record qualifies for removal when **all** of the following hold:
 
 1. It has an **EBK item** (`item_with_title.collection = 'EBK'`).
-2. It has a `590` that is a **ProQuest purchase note** — see the two classes
-   below.
-3. The record has **no DDA `590`** anywhere (record-level `NOT DDA`).
+2. It has some `590` containing `ProQuest`.
+3. It has some `590` containing `purchase`.
 
-Condition 2 has two classes, reported side by side so the exact criteria can be
-chosen after seeing the counts:
+The two words may be in **one `590` or spread across two (or more)** — it does
+not matter which. Multiple `590`s record a title's status history: a record with
+a `DDA` note in one `590` and a `purchase` note in another was added as a DDA
+title and later purchased. Such records **are** in scope and are kept — there is
+**no `DDA` exclusion**.
 
-| `match_class` | Definition | Meaning |
-| --- | --- | --- |
-| `STRICT` | A single `590` contains **both** `ProQuest` **and** `purchase` | The literal refined rule: "ProQuest AND purchase in the same 590, NOT DDA." |
-| `BROADENED_ONLY` | No single `590` has both words, **but** a `590` contains `purchase` together with `SUPO` or `MUPO` | A ProQuest purchase note that omits the literal word "ProQuest" (e.g. `Perpetual access ebook purchase; SUPO; autopurchase`). `SUPO`/`MUPO` are ProQuest's own license codes. |
+Last run: **2,117 bibs** qualify.
 
-- **The strict list** = `match_class = 'STRICT'` (~2,019 bibs in the last run).
-- **The full list** = both classes. The `BROADENED_ONLY` rows are the ~380-record
-  gap between the strict count and the expected ~2,400: purchase records whose
-  `590` never spells out "ProQuest" and which the strict rule structurally
-  misses, leaving them to duplicate against the fresh ingest.
+### Informational columns (do not filter the delete)
+Each qualifying bib carries three descriptive columns so the delete list can be
+reviewed without a second query:
 
-Run **Query C** first to see both counts, then delete from `STRICT` only, or
-from both, per that decision.
-
-### Why `SUPO`/`MUPO` and not "subscription"
-`SUPO` (Single-User Purchase Option) and `MUPO` (Multi-User Purchase Option) are
-both **purchase** license models — seat counts on an owned title, not a
-subscription. The original request assumed "MUPO = subscription record, remove
-it"; the data disproves that (see the Appendix). MUPO appears on hundreds of
-owned perpetual-access purchase notes. The true subscription marker is the
-literal phrase `subscription` (e.g. `ProQuest LibCentral subscription`), which is
-**not** part of this removal rule and is surfaced only as a warning column.
+| Column | Meaning |
+| --- | --- |
+| `match_type` | `SAME_ROW` = one `590` holds both words; `CROSS_ROW` = the words are split across separate `590`s. Purely descriptive — both are in scope. |
+| `has_dda` | `Y` = the record also has a `DDA` `590` (the DDA-then-purchased progression). 95 in the last run. Still removed. |
+| `has_subscription` | `Y` = the record also has a live `ProQuest LibCentral subscription` `590`. **Deletion hazard** — see below. 6 in the last run. |
 
 ### Deletion hazard: `has_subscription`
-A handful of bibs carry **both** a purchase `590` and a live
+A few bibs carry **both** a purchase `590` and a live
 `ProQuest LibCentral subscription` `590` on the same record. Deleting such a bib
-removes the subscription access too. These qualify only via `BROADENED_ONLY`, and
-those without a DDA note are **not** filtered out by the `NOT DDA` condition.
-Every query emits a `has_subscription` column (`Y` / blank) so these are visible;
-review them before deleting.
+removes the subscription access too, not just the stale purchase record. Query A
+floats these to the top of the list (`ORDER BY has_subscription DESC`).
+**Recommendation: pull the `has_subscription = Y` rows out of the delete batch**
+and handle them with the duplicate-record cleanup (see Appendix), rather than
+purging them blind.
+
+### Coverage note — records with no literal "ProQuest"
+This rule requires the literal word `ProQuest` in some `590`. A record whose
+`590`s only ever say `Perpetual access ebook purchase; SUPO` — with no `ProQuest`
+anywhere — is **not** matched. Many such records are still caught here because
+they carry a ProQuest DDA note in a second `590`, but a record with no ProQuest
+`590` at all will be missed. If, after the reload, duplicates remain from records
+like that, widen condition 2 to also accept a `590` containing `purchase` with
+`SUPO`/`MUPO` (ProQuest's own purchase codes). That broaden was measured at
+~7,934 bibs total and is **not** applied here; it is noted only as the lever to
+pull if literal matching proves too narrow.
 
 ### Case sensitivity
-- `%purchase%` and `%ProQuest%` — **case-insensitive** (default collation).
+- `%ProQuest%` and `%purchase%` — **case-insensitive** (default collation).
   `purchase` must stay case-insensitive to catch `Purchased…`; `ProQuest` to
   catch any `PROQUEST`/`Proquest` variant.
-- `%SUPO%`, `%MUPO%`, `%DDA%` — **case-sensitive** (`COLLATE
+- `%DDA%` (the `has_dda` flag) — **case-sensitive** (`COLLATE
   Latin1_General_CS_AS`). MARC subfield codes are lowercase, so an uppercase
-  acronym can never be forged at a code/content boundary. This is the same
-  `dDa` false-positive guard proven necessary in
-  `590-ebk-049-dda-not-purchased-report`; applied to `SUPO`/`MUPO` for the same
-  reason.
+  acronym can never be forged at a code/content boundary; a case-insensitive
+  `%DDA%` also matched the `dDa` sequence where a `$d` subfield code abuts
+  content beginning `Da…`. This guard was proven necessary in
+  `590-ebk-049-dda-not-purchased-report`. (The flag is descriptive only, but is
+  kept accurate.)
 
 ---
 
 ## Query A — The Removal List (Read-Only)
-**One row per bib.** Columns: `bib#`, `title`, `match_class`, `has_subscription`,
-`purchase_590`. Filter on `match_class` to take the strict list or the full list.
-Run in SSMS, then right-click the grid → **Save Results As… → CSV**.
+**One row per bib.** Columns: `bib#`, `title`, `match_type`, `has_dda`,
+`has_subscription`, `notes_590`. Run in SSMS, then right-click the grid →
+**Save Results As… → CSV**.
 
 ```sql
 WITH ebk AS (                        -- collapse the item side: one row per bib
@@ -99,37 +103,38 @@ WITH ebk AS (                        -- collapse the item side: one row per bib
 qual AS (
         SELECT
             e.[bib#],
-            CASE WHEN EXISTS (       -- one 590 holding BOTH words -> STRICT
+            CASE WHEN EXISTS (       -- one 590 holding BOTH words
                      SELECT 1 FROM bib s
                      WHERE s.[bib#] = e.[bib#] AND s.tag = '590'
-                       AND s.text LIKE '%ProQuest%'
-                       AND s.text LIKE '%purchase%')
-                 THEN 'STRICT' ELSE 'BROADENED_ONLY'
-            END AS match_class,
-            CASE WHEN EXISTS (       -- record also carries a subscription note
+                       AND s.text LIKE '%ProQuest%' AND s.text LIKE '%purchase%')
+                 THEN 'SAME_ROW' ELSE 'CROSS_ROW' END AS match_type,
+            CASE WHEN EXISTS (       -- record also has a DDA note
+                     SELECT 1 FROM bib d
+                     WHERE d.[bib#] = e.[bib#] AND d.tag = '590'
+                       AND d.text COLLATE Latin1_General_CS_AS LIKE '%DDA%')
+                 THEN 'Y' ELSE '' END AS has_dda,
+            CASE WHEN EXISTS (       -- record also has a subscription note
                      SELECT 1 FROM bib sub
                      WHERE sub.[bib#] = e.[bib#] AND sub.tag = '590'
                        AND sub.text LIKE '%subscription%')
                  THEN 'Y' ELSE '' END AS has_subscription
         FROM ebk e
-        WHERE EXISTS (               -- a ProQuest purchase 590 (strict OR broadened)
+        WHERE EXISTS (               -- some 590 contains ProQuest
                 SELECT 1 FROM bib p
                 WHERE p.[bib#] = e.[bib#] AND p.tag = '590'
-                  AND p.text LIKE '%purchase%'
-                  AND (p.text LIKE '%ProQuest%'
-                       OR p.text COLLATE Latin1_General_CS_AS LIKE '%SUPO%'
-                       OR p.text COLLATE Latin1_General_CS_AS LIKE '%MUPO%'))
-          AND NOT EXISTS (           -- record-level NOT DDA (case-sensitive)
-                SELECT 1 FROM bib d
-                WHERE d.[bib#] = e.[bib#] AND d.tag = '590'
-                  AND d.text COLLATE Latin1_General_CS_AS LIKE '%DDA%')
+                  AND p.text LIKE '%ProQuest%')
+          AND EXISTS (               -- some 590 contains purchase
+                SELECT 1 FROM bib u
+                WHERE u.[bib#] = e.[bib#] AND u.tag = '590'
+                  AND u.text LIKE '%purchase%')
 )
 SELECT
     q.[bib#]           AS [bib#],
     t.title            AS [title],
-    q.match_class      AS [match_class],
+    q.match_type       AS [match_type],
+    q.has_dda          AS [has_dda],
     q.has_subscription AS [has_subscription],
-    n.purchase_590     AS [purchase_590]
+    n.notes_590        AS [notes_590]
 FROM qual q
 OUTER APPLY (                        -- 245$a title (see "Title parsing" below)
     SELECT TOP 1
@@ -147,17 +152,14 @@ OUTER APPLY (                        -- 245$a title (see "Title parsing" below)
     WHERE t245.[bib#] = q.[bib#] AND t245.tag = '245' AND m.pa > 0
     ORDER BY t245.tagord             -- lowest-tagord 245 segment
 ) t
-OUTER APPLY (                        -- the qualifying purchase 590(s), one cell
+OUTER APPLY (                        -- the matching 590(s), collapsed to one cell
     SELECT STRING_AGG(pp.text, ' | ')
-               WITHIN GROUP (ORDER BY pp.tagord) AS purchase_590
+               WITHIN GROUP (ORDER BY pp.tagord) AS notes_590
     FROM bib pp
     WHERE pp.[bib#] = q.[bib#] AND pp.tag = '590'
-      AND pp.text LIKE '%purchase%'
-      AND (pp.text LIKE '%ProQuest%'
-           OR pp.text COLLATE Latin1_General_CS_AS LIKE '%SUPO%'
-           OR pp.text COLLATE Latin1_General_CS_AS LIKE '%MUPO%')
+      AND (pp.text LIKE '%ProQuest%' OR pp.text LIKE '%purchase%')
 ) n
-ORDER BY q.match_class, q.has_subscription DESC, q.[bib#];
+ORDER BY q.has_subscription DESC, q.match_type, q.[bib#];
 ```
 
 **Pre-2017 SQL Server:** `STRING_AGG` requires SQL Server 2017+. On an older
@@ -169,25 +171,22 @@ OUTER APPLY (
         SELECT ' | ' + pp.text
         FROM bib pp
         WHERE pp.[bib#] = q.[bib#] AND pp.tag = '590'
-          AND pp.text LIKE '%purchase%'
-          AND (pp.text LIKE '%ProQuest%'
-               OR pp.text COLLATE Latin1_General_CS_AS LIKE '%SUPO%'
-               OR pp.text COLLATE Latin1_General_CS_AS LIKE '%MUPO%')
+          AND (pp.text LIKE '%ProQuest%' OR pp.text LIKE '%purchase%')
         ORDER BY pp.tagord
-        FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 3, '') AS purchase_590
+        FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 3, '') AS notes_590
 ) n
 ```
 
-`purchase_590` is a convenience column for eyeballing what matched; the delete
-does not depend on it. If `FOR XML PATH` chokes on the `CHAR(30)`/`CHAR(31)`
-control characters in `bib.text`, drop the column and verify with Query B.
+`notes_590` is a convenience column for eyeballing what matched; the delete does
+not depend on it. If `FOR XML PATH` chokes on the `CHAR(30)`/`CHAR(31)` control
+characters in `bib.text`, drop the column and verify with Query B.
 
 ---
 
 ## Query B — Detail / Verification (Read-Only)
-**One row per matching `590` tag** on a qualifying bib. Shows every ProQuest-,
-purchase-, subscription-, or DDA-bearing `590` so the classification can be
-audited. Row count exceeds the record count — expected.
+**One row per `590` tag** on a qualifying bib — every `590`, so a title's full
+status progression (DDA → purchase, subscription, etc.) is visible. Row count
+exceeds the record count — expected.
 
 ```sql
 WITH ebk AS (
@@ -199,21 +198,14 @@ qual AS (
                      SELECT 1 FROM bib s
                      WHERE s.[bib#] = e.[bib#] AND s.tag = '590'
                        AND s.text LIKE '%ProQuest%' AND s.text LIKE '%purchase%')
-                 THEN 'STRICT' ELSE 'BROADENED_ONLY' END AS match_class
+                 THEN 'SAME_ROW' ELSE 'CROSS_ROW' END AS match_type
         FROM ebk e
-        WHERE EXISTS (
-                SELECT 1 FROM bib p
-                WHERE p.[bib#] = e.[bib#] AND p.tag = '590'
-                  AND p.text LIKE '%purchase%'
-                  AND (p.text LIKE '%ProQuest%'
-                       OR p.text COLLATE Latin1_General_CS_AS LIKE '%SUPO%'
-                       OR p.text COLLATE Latin1_General_CS_AS LIKE '%MUPO%'))
-          AND NOT EXISTS (
-                SELECT 1 FROM bib d
-                WHERE d.[bib#] = e.[bib#] AND d.tag = '590'
-                  AND d.text COLLATE Latin1_General_CS_AS LIKE '%DDA%')
+        WHERE EXISTS (SELECT 1 FROM bib p WHERE p.[bib#] = e.[bib#]
+                        AND p.tag = '590' AND p.text LIKE '%ProQuest%')
+          AND EXISTS (SELECT 1 FROM bib u WHERE u.[bib#] = e.[bib#]
+                        AND u.tag = '590' AND u.text LIKE '%purchase%')
 )
-SELECT q.[bib#] AS [bib#], q.match_class AS [match_class],
+SELECT q.[bib#] AS [bib#], q.match_type AS [match_type],
        b.tag AS [tag], b.text AS [text]
 FROM qual q
 INNER JOIN bib b ON b.[bib#] = q.[bib#] AND b.tag = '590'
@@ -222,8 +214,8 @@ ORDER BY q.[bib#], b.tagord;
 
 ---
 
-## Query C — Both Counts (Read-Only, run this first)
-Answers "how many strict vs. broadened, and how many carry a subscription."
+## Query C — Counts (Read-Only)
+The delete-list size plus the informational flag totals.
 
 ```sql
 WITH ebk AS (
@@ -235,38 +227,34 @@ qual AS (
                      SELECT 1 FROM bib s
                      WHERE s.[bib#] = e.[bib#] AND s.tag = '590'
                        AND s.text LIKE '%ProQuest%' AND s.text LIKE '%purchase%')
-                 THEN 'STRICT' ELSE 'BROADENED_ONLY' END AS match_class,
-            CASE WHEN EXISTS (
-                     SELECT 1 FROM bib sub
-                     WHERE sub.[bib#] = e.[bib#] AND sub.tag = '590'
-                       AND sub.text LIKE '%subscription%')
+                 THEN 'SAME_ROW' ELSE 'CROSS_ROW' END AS match_type,
+            CASE WHEN EXISTS (SELECT 1 FROM bib d WHERE d.[bib#] = e.[bib#]
+                     AND d.tag = '590'
+                     AND d.text COLLATE Latin1_General_CS_AS LIKE '%DDA%')
+                 THEN 1 ELSE 0 END AS has_dda,
+            CASE WHEN EXISTS (SELECT 1 FROM bib sub WHERE sub.[bib#] = e.[bib#]
+                     AND sub.tag = '590' AND sub.text LIKE '%subscription%')
                  THEN 1 ELSE 0 END AS has_sub
         FROM ebk e
-        WHERE EXISTS (
-                SELECT 1 FROM bib p
-                WHERE p.[bib#] = e.[bib#] AND p.tag = '590'
-                  AND p.text LIKE '%purchase%'
-                  AND (p.text LIKE '%ProQuest%'
-                       OR p.text COLLATE Latin1_General_CS_AS LIKE '%SUPO%'
-                       OR p.text COLLATE Latin1_General_CS_AS LIKE '%MUPO%'))
-          AND NOT EXISTS (
-                SELECT 1 FROM bib d
-                WHERE d.[bib#] = e.[bib#] AND d.tag = '590'
-                  AND d.text COLLATE Latin1_General_CS_AS LIKE '%DDA%')
+        WHERE EXISTS (SELECT 1 FROM bib p WHERE p.[bib#] = e.[bib#]
+                        AND p.tag = '590' AND p.text LIKE '%ProQuest%')
+          AND EXISTS (SELECT 1 FROM bib u WHERE u.[bib#] = e.[bib#]
+                        AND u.tag = '590' AND u.text LIKE '%purchase%')
 )
 SELECT
-    match_class                         AS [match_class],
-    COUNT(*)                            AS [bibs],
-    SUM(has_sub)                        AS [with_subscription_590]
+    match_type       AS [match_type],
+    COUNT(*)         AS [bibs],
+    SUM(has_dda)     AS [with_dda_590],
+    SUM(has_sub)     AS [with_subscription_590]
 FROM qual
-GROUP BY match_class
+GROUP BY match_type
 WITH ROLLUP
-ORDER BY GROUPING(match_class), match_class;
+ORDER BY GROUPING(match_type), match_type;
 ```
 
-The `WITH ROLLUP` line (`match_class = NULL`) is the grand total = the full-list
-record count. Compare `STRICT` against ~2,019 and the total against ~2,400.
-`with_subscription_590` flags the deletion hazard in each class.
+The `WITH ROLLUP` line (`match_type = NULL`) is the grand total = the delete-list
+record count. Last run: **2,117** total (`SAME_ROW` 2,028, `CROSS_ROW` 89);
+`with_dda_590` 95; `with_subscription_590` 6.
 
 ---
 
@@ -285,7 +273,7 @@ NULL) — the report never silently hides a record slated for deletion.
 ## Coverage note (item-side EBK definition)
 "Is EBK" is read from `item_with_title`, so a bib that has lost its item rows
 would not appear. A one-time sanity count (bibs matching the `590` rule with an
-`EBK` `049` tag but no EBK item) returned **0** in the last run, confirming the
+`EBK` `049` tag but no EBK item) returned **0** in an earlier run, confirming the
 item-side definition is complete. Re-run it if the catalog changes materially:
 
 ```sql
@@ -293,21 +281,20 @@ SELECT COUNT(*) AS [ebk_049_bibs_with_no_ebk_item]
 FROM (SELECT DISTINCT b049.[bib#] FROM bib b049
       WHERE b049.tag = '049' AND b049.text LIKE '%EBK%'
         AND EXISTS (SELECT 1 FROM bib p WHERE p.[bib#] = b049.[bib#]
-                    AND p.tag = '590' AND p.text LIKE '%purchase%'
-                    AND (p.text LIKE '%ProQuest%'
-                         OR p.text COLLATE Latin1_General_CS_AS LIKE '%SUPO%'
-                         OR p.text COLLATE Latin1_General_CS_AS LIKE '%MUPO%'))) z
+                    AND p.tag = '590' AND p.text LIKE '%ProQuest%')
+        AND EXISTS (SELECT 1 FROM bib u WHERE u.[bib#] = b049.[bib#]
+                    AND u.tag = '590' AND u.text LIKE '%purchase%')) z
 WHERE NOT EXISTS (SELECT 1 FROM item_with_title i
                   WHERE i.[bib#] = z.[bib#] AND i.collection = 'EBK');
 ```
 
 ## Notes and edge cases
-- A single `590` with both `ProQuest` and `purchase` makes a bib `STRICT`; it
-  still appears once in Query A.
+- Both `match_type` values (`SAME_ROW`, `CROSS_ROW`) are in scope; the column is
+  descriptive, not a filter.
 - Query A / Query C row counts are authoritative for the record count. Query B's
   row count is intentionally larger (one row per `590`).
-- `ORDER BY q.match_class, q.has_subscription DESC` groups `BROADENED_ONLY` and
-  floats the subscription-bearing hazards to the top of their group for review.
+- `ORDER BY has_subscription DESC` floats the subscription-bearing hazards to the
+  top of Query A for review before deletion.
 - `tagord` is order-only (and used in the title parser); not an output column.
 
 ---
