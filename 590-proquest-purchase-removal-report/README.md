@@ -153,8 +153,7 @@ OUTER APPLY (                        -- 245$a title (see "Title parsing" below)
     ORDER BY t245.tagord             -- lowest-tagord 245 segment
 ) t
 OUTER APPLY (                        -- the matching 590(s), collapsed to one cell
-    SELECT STRING_AGG(pp.text, ' | ')
-               WITHIN GROUP (ORDER BY pp.tagord) AS notes_590
+    SELECT STRING_AGG(pp.text, ' | ') AS notes_590
     FROM bib pp
     WHERE pp.[bib#] = q.[bib#] AND pp.tag = '590'
       AND (pp.text LIKE '%ProQuest%' OR pp.text LIKE '%purchase%')
@@ -162,24 +161,30 @@ OUTER APPLY (                        -- the matching 590(s), collapsed to one ce
 ORDER BY q.has_subscription DESC, q.match_type, q.[bib#];
 ```
 
-**Pre-2017 SQL Server:** `STRING_AGG` requires SQL Server 2017+. On an older
-engine, replace the second `OUTER APPLY` with the `FOR XML PATH` form:
+### `notes_590` aggregation — engine / compatibility-level variations
+The `STRING_AGG` above deliberately omits a `WITHIN GROUP (ORDER BY …)` clause so
+it runs on any engine where `STRING_AGG` exists (SQL Server 2017+), **regardless
+of the database compatibility level**. Horizon databases are often pinned to an
+older compat level; there `STRING_AGG` works but the ordering clause raises:
 
-```sql
-OUTER APPLY (
-    SELECT STUFF((
-        SELECT ' | ' + pp.text
-        FROM bib pp
-        WHERE pp.[bib#] = q.[bib#] AND pp.tag = '590'
-          AND (pp.text LIKE '%ProQuest%' OR pp.text LIKE '%purchase%')
-        ORDER BY pp.tagord
-        FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 3, '') AS notes_590
-) n
-```
+> `The function 'STRING_AGG' may not have a WITHIN GROUP clause.`
+
+because `WITHIN GROUP` requires compat level 110+. Without it, the order in which
+a bib's matching `590`s are concatenated is unspecified — harmless for a
+display-only column.
+
+- **Compat level 110+ and you want the notes ordered** (purchase/DDA in
+  `tagord` sequence): add `WITHIN GROUP (ORDER BY pp.tagord)` immediately after
+  `STRING_AGG(pp.text, ' | ')`.
+- **`STRING_AGG` does not exist at all** (pre-2017 engine): `notes_590` is a
+  convenience column only — simplest is to delete it from both the `SELECT` and
+  the `OUTER APPLY`, and verify matches with **Query B** instead. (A
+  `FOR XML PATH` concatenation is the usual substitute but tends to fail here:
+  `590` text embeds `CHAR(31)`/`CHAR(30)` control characters that are illegal in
+  XML.)
 
 `notes_590` is a convenience column for eyeballing what matched; the delete does
-not depend on it. If `FOR XML PATH` chokes on the `CHAR(30)`/`CHAR(31)` control
-characters in `bib.text`, drop the column and verify with Query B.
+not depend on it.
 
 ---
 
