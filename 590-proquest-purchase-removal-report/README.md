@@ -91,8 +91,15 @@ pull if literal matching proves too narrow.
 
 ## Query A — The Removal List (Read-Only)
 **One row per bib.** Columns: `bib#`, `title`, `match_type`, `has_dda`,
-`has_subscription`, `notes_590`. Run in SSMS, then right-click the grid →
+`has_subscription`. Run in SSMS, then right-click the grid →
 **Save Results As… → CSV**.
+
+This primary form uses **no `STRING_AGG`**, so it runs on any SQL Server version
+and any database compatibility level — confirmed against the live Horizon
+database, whose compat level is below where `STRING_AGG` is available. For the
+`590` note text on any record, use **Query B**. An optional `notes_590` column
+for engines that support `STRING_AGG` (SQL Server 2017+, compat 110+) is shown
+after the query.
 
 ```sql
 WITH ebk AS (                        -- collapse the item side: one row per bib
@@ -133,8 +140,7 @@ SELECT
     t.title            AS [title],
     q.match_type       AS [match_type],
     q.has_dda          AS [has_dda],
-    q.has_subscription AS [has_subscription],
-    n.notes_590        AS [notes_590]
+    q.has_subscription AS [has_subscription]
 FROM qual q
 OUTER APPLY (                        -- 245$a title (see "Title parsing" below)
     SELECT TOP 1
@@ -152,39 +158,33 @@ OUTER APPLY (                        -- 245$a title (see "Title parsing" below)
     WHERE t245.[bib#] = q.[bib#] AND t245.tag = '245' AND m.pa > 0
     ORDER BY t245.tagord             -- lowest-tagord 245 segment
 ) t
+ORDER BY q.has_subscription DESC, q.match_type, q.[bib#];
+```
+
+### Optional `notes_590` column (SQL Server 2017+, compat 110+ only)
+The primary query omits the matching-`590` text so it runs everywhere; verify
+note text with **Query B**. If your engine has `STRING_AGG` **and** the database
+compatibility level is 110+, you can add the notes inline. Put `n.notes_590 AS
+[notes_590],` back in the `SELECT` list and add this `OUTER APPLY` after the
+title block:
+
+```sql
 OUTER APPLY (                        -- the matching 590(s), collapsed to one cell
-    SELECT STRING_AGG(pp.text, ' | ') AS notes_590
+    SELECT STRING_AGG(pp.text, ' | ') WITHIN GROUP (ORDER BY pp.tagord) AS notes_590
     FROM bib pp
     WHERE pp.[bib#] = q.[bib#] AND pp.tag = '590'
       AND (pp.text LIKE '%ProQuest%' OR pp.text LIKE '%purchase%')
 ) n
-ORDER BY q.has_subscription DESC, q.match_type, q.[bib#];
 ```
 
-### `notes_590` aggregation — engine / compatibility-level variations
-The `STRING_AGG` above deliberately omits a `WITHIN GROUP (ORDER BY …)` clause so
-it runs on any engine where `STRING_AGG` exists (SQL Server 2017+), **regardless
-of the database compatibility level**. Horizon databases are often pinned to an
-older compat level; there `STRING_AGG` works but the ordering clause raises:
-
-> `The function 'STRING_AGG' may not have a WITHIN GROUP clause.`
-
-because `WITHIN GROUP` requires compat level 110+. Without it, the order in which
-a bib's matching `590`s are concatenated is unspecified — harmless for a
-display-only column.
-
-- **Compat level 110+ and you want the notes ordered** (purchase/DDA in
-  `tagord` sequence): add `WITHIN GROUP (ORDER BY pp.tagord)` immediately after
-  `STRING_AGG(pp.text, ' | ')`.
-- **`STRING_AGG` does not exist at all** (pre-2017 engine): `notes_590` is a
-  convenience column only — simplest is to delete it from both the `SELECT` and
-  the `OUTER APPLY`, and verify matches with **Query B** instead. (A
-  `FOR XML PATH` concatenation is the usual substitute but tends to fail here:
-  `590` text embeds `CHAR(31)`/`CHAR(30)` control characters that are illegal in
-  XML.)
-
-`notes_590` is a convenience column for eyeballing what matched; the delete does
-not depend on it.
+Failure modes seen on the live database (both avoided by the primary query):
+`STRING_AGG` at compat level below 110 rejects the ordering clause
+(`The function 'STRING_AGG' may not have a WITHIN GROUP clause.`); at a still
+lower level the function is unavailable entirely
+(`'STRING_AGG' is not a recognized built-in function name.`). `FOR XML PATH` is
+the usual pre-2017 substitute but tends to fail here because `590` text embeds
+`CHAR(31)`/`CHAR(30)` control characters that are illegal in XML. When in doubt,
+use the primary query and Query B.
 
 ---
 
