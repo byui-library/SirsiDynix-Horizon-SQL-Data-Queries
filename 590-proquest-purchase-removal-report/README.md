@@ -304,6 +304,50 @@ WHERE NOT EXISTS (SELECT 1 FROM item_with_title i
 
 ---
 
+## Building the delete-list table (after approval)
+Once the Query A output has been reviewed and the bib#s to remove are approved,
+materialize that **exact, frozen set** into a one-column table for the
+batch-delete utility. Build it from the approved list — **not** a fresh re-run of
+Query A. The live `590` data drifts between runs (in this project the
+subscription-flagged count fell from 6 to 2 over a few days, and `match_type`
+counts shifted), so re-querying at delete time could add or drop records the
+reviewer never signed off on. A hardcoded list cannot shift out from under the
+approval.
+
+```sql
+IF OBJECT_ID('dbo.ProQuest_Purchase_DeleteList', 'U') IS NOT NULL
+    DROP TABLE dbo.ProQuest_Purchase_DeleteList;
+GO
+CREATE TABLE dbo.ProQuest_Purchase_DeleteList (
+    [bib#] INT NOT NULL
+        CONSTRAINT PK_ProQuest_Purchase_DeleteList PRIMARY KEY
+);
+GO
+INSERT INTO dbo.ProQuest_Purchase_DeleteList ([bib#]) VALUES
+(5384390),
+(5384391);   -- … one row per approved bib#; see batching note below
+GO
+-- Verify against the approved count before handing off.
+SELECT COUNT(*) AS [rows_loaded] FROM dbo.ProQuest_Purchase_DeleteList;
+GO
+```
+
+Notes:
+- The `PRIMARY KEY` on `[bib#]` rejects any duplicate bib# — the load count must
+  equal the approved record count exactly.
+- SQL Server caps a `VALUES` list at **1000 rows**; split a larger list across
+  multiple `INSERT … VALUES` batches (e.g. 2,117 approved rows → three batches of
+  1000 / 1000 / 117).
+- Generate the full multi-batch script **mechanically** from the approved Query A
+  CSV — do not hand-type 2,000+ values. Keep the generated script and the
+  approved CSV together as the deletion's audit record.
+- This table only **lists** the records; it performs no deletion. Hand
+  `dbo.ProQuest_Purchase_DeleteList` to Horizon's batch-delete utility, which
+  cleans up the `bib` / `item` / index dependencies (see "This report does not
+  delete anything" above).
+
+---
+
 ## Appendix: MUPO / SUPO and the duplicate-record cleanup (deferred)
 A related but separate problem: the catalog is believed to hold **duplicate
 ProQuest records** for the same title. The original framing was "the subscription
