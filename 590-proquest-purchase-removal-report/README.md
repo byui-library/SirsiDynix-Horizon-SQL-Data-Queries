@@ -346,6 +346,58 @@ Notes:
   cleans up the `bib` / `item` / index dependencies (see "This report does not
   delete anything" above).
 
+### Running the batch delete (Horizon `killbib`)
+Point Horizon's `killbib` command-line utility at the table with the `/t` flag.
+It reads the bib#s from `dbo.ProQuest_Purchase_DeleteList` and deletes each bib
+with its items and index dependencies.
+
+```
+killbib /s<server> /u<staff-login> /p<password> /d<database> /t<table> /k /b<start-bib#>
+```
+
+Worked example (credentials shown as placeholders — **do not commit real
+logins/passwords**; this repo is public):
+
+```
+killbib /shorizondb /u<staff-login> /p<password> /dhorizon /tProQuest_Purchase_DeleteList /k /b5384391
+```
+
+| flag | meaning |
+| --- | --- |
+| `/s` | SQL Server instance (e.g. `horizondb`) |
+| `/u` | database staff login |
+| `/p` | password for that login |
+| `/d` | database name (`horizon`) |
+| `/t` | table holding the bib# list to delete (`ProQuest_Purchase_DeleteList`) |
+| `/k` | run in delete ("kill") mode |
+| `/b` | begin at this bib# — used to **resume** a run partway through (here, restart at `5384391` after the first record) |
+
+Confirm exact flag behaviour against `killbib`'s own help; `/k` and `/b` are
+documented here from observed use.
+
+**If `killbib` stops with** `FK_stat_data_location` (or a similar
+`FK_stat_data_*`) foreign-key error: a Horizon item on that bib carries a
+`location` (or `collection`/`itype`) code that is missing from its parent table,
+so `killbib`'s statistics insert fails and the delete rolls back. This is a
+Horizon data-integrity issue, not a fault in the list. Diagnose the orphaned
+code across the whole list before resuming:
+
+```sql
+SELECT i.location AS missing_location_code,
+       COUNT(*) AS item_count, COUNT(DISTINCT i.[bib#]) AS bib_count
+FROM item i
+JOIN dbo.ProQuest_Purchase_DeleteList d ON d.[bib#] = i.[bib#]
+LEFT JOIN location l ON l.location = i.location
+WHERE l.location IS NULL
+GROUP BY i.location;
+```
+
+Add the missing code back to the parent table (if it is a legitimate code that
+was removed) or correct the offending items to a valid code, then re-run
+`killbib`, using `/b<bib#>` to resume from where it stopped. Do **not** drop or
+disable the FK to force it through — that writes statistics rows pointing at a
+non-existent location and corrupts the stat tables.
+
 ---
 
 ## Appendix: MUPO / SUPO and the duplicate-record cleanup (deferred)
