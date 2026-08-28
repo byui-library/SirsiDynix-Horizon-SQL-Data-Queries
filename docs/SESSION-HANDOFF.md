@@ -3,11 +3,10 @@
 State of play. Read this first; it says what is finished, what is genuinely
 unresolved, and what to do next.
 
-**Everything described here is committed.** The 2026-08-27 session's work — the
-schema reference, the tooling, the reorganisation and the security pass — plus
-the 2026-08-28 verification of the delete run.
-
-Nothing has been **pushed**. `git log origin/master..HEAD` shows what is waiting.
+**Everything described here is committed and pushed** as of 2026-08-28, in three
+commits: the schema reference and tooling, the scratch-table cleanup with the
+refreshed export, and a review pass that fixed the cleanup solution's count gate
+and closed a gap in the redaction guard.
 
 ---
 
@@ -33,8 +32,13 @@ three stale patron-data backups holding roughly 530,000 records.
 `item_circ_renewal`, `bstat_group` and `sort_order`. All three had a
 post-install `create_date` because something rebuilt them, which makes a vendor
 table look local. The dependency check did not catch them — a standalone lookup
-table has nothing referencing it. Step 1e of that solution exists because of
-this, and is what separates the two.
+table has nothing referencing it.
+
+That near-miss shaped the solution: step 1b now reports structural signals
+(column count, declared PK, user-defined-type columns) beside each candidate, so
+the evidence sits on the same line as the decision instead of in a separate
+grid, and the three exclusions live in a `@Keep` table carrying a reason per
+name.
 
 The schema export was refreshed afterwards and matches the live database:
 928 tables, 433 views, 13,949 columns.

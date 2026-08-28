@@ -3,7 +3,8 @@
 Machine-generated CSV dumps of this Horizon database's schema. **These are the
 source of truth** for every table and column name used in this repository.
 
-Captured **2026-08-27** from the live database.
+First captured **2026-08-27**; refreshed **2026-08-28** after the scratch-table
+cleanup dropped 42 tables. These files match the live database as of that date.
 
 | File | Rows | Contents |
 | --- | ---: | --- |
