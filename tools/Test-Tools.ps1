@@ -331,24 +331,19 @@ if (-not (Test-Path $denyPath)) {
 
     # Only files git actually tracks - untracked scratch is not published.
     #
-    # Excluded, deliberately:
-    #   docs/superpowers/    historical planning records, frozen
-    #   horizon-schema/      the raw vendor schema export
-    #   docs/schema/index/   pages generated verbatim from that export
+    # Excluded: docs/superpowers/ only - frozen historical planning records.
     #
-    # The schema export is a faithful dump of what is in the database. Some
-    # Horizon tables are named after the staff member who created them
-    # (del_<user>, kill_bib<user>N), so a username can legitimately appear
-    # there as DATA. Redacting it would make the export disagree with the
-    # database and break its purpose as the lookup source of truth - a grep for
-    # a real table name must find it. That residual exposure is a separate,
-    # deliberate decision; see docs/SESSION-HANDOFF.md.
+    # horizon-schema/ and docs/schema/index/ WERE excluded, because scratch
+    # tables named after a staff member (del_<user>, kill_bib<user>N) put a
+    # username into the export as DATA, and doctoring the export would have made
+    # it disagree with the database. Those tables were dropped on 2026-08-28 and
+    # the export refreshed, so the blind spot is closed and the guard scans them
+    # again. If a future export reintroduces such a name, fix it at the source -
+    # rename the table - rather than re-adding an exclusion here.
     Push-Location $repoRoot
     $tracked = @(& git ls-files 2>$null | Where-Object {
         $_ -match '\.(md|ps1|sql|html|txt|json|yml|yaml)$' -and
-        $_ -notmatch '^docs/superpowers/' -and
-        $_ -notmatch '^horizon-schema/' -and
-        $_ -notmatch '^docs/schema/index/'
+        $_ -notmatch '^docs/superpowers/'
     })
     Pop-Location
     Assert-True ($tracked.Count -gt 0) "found $($tracked.Count) tracked text files to scan"

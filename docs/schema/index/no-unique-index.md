@@ -10,7 +10,7 @@ Views appear here routinely (a view inherits no index of its own); that is
 expected and does not by itself mean the view is not one row per key.
 Determine a view's grain from its underlying tables.
 
-**712 objects.**
+**672 objects.**
 
 | Object | Type | Cols |
 | --- | --- | ---: |
@@ -43,14 +43,12 @@ Determine a view's grain from its underlying tables.
 | `auth_update_non_lc_list` | VIEW | 1 |
 | `auth_with_longtext` | VIEW | 10 |
 | `auths_temp_830` | TABLE | 1 |
-| `bad_item_delete` | TABLE | 1 |
 | `bb_update` | TABLE | 3 |
 | `bib_008` | TABLE | 3 |
 | `bib_all3` | TABLE | 1 |
 | `bib_auth_subfield_control` | VIEW | 2 |
 | `bib_backup_ghjk` | TABLE | 1 |
 | `bib_backup_ghjk2` | TABLE | 1 |
-| `bib_call_lc` | TABLE | 1 |
 | `bib_category_code` | VIEW | 5 |
 | `bib_chi` | TABLE | 1 |
 | `bib_chi_date` | TABLE | 2 |
@@ -58,11 +56,9 @@ Determine a view's grain from its underlying tables.
 | `bib_ebzCallBack` | TABLE | 12 |
 | `bib_element_value` | VIEW | 8 |
 | `bib_familySearch` | TABLE | 1 |
-| `bib_FOD` | TABLE | 1 |
 | `bib_gw_date` | TABLE | 2 |
 | `bib_indicator_value` | VIEW | 6 |
 | `bib_instr` | TABLE | 4 |
-| `bib_isbn2` | TABLE | 2 |
 | `bib_long` | TABLE | 1 |
 | `bib_marcin_match_param` | VIEW | 9 |
 | `bib_no_245_no008` | TABLE | 1 |
@@ -76,7 +72,6 @@ Determine a view's grain from its underlying tables.
 | `bib_tag` | VIEW | 15 |
 | `bib_tag_format` | VIEW | 5 |
 | `bib_tag_to_auth_tag` | VIEW | 4 |
-| `bib_test` | TABLE | 12 |
 | `bib_with_longtext` | VIEW | 10 |
 | `bibstat_260` | VIEW | 2 |
 | `binding_bundle_issue_view` | VIEW | 26 |
@@ -87,11 +82,8 @@ Determine a view's grain from its underlying tables.
 | `binding_unassigned_issues` | VIEW | 21 |
 | `block_notice_language_BAK` | TABLE | 7 |
 | `borr_fam_grp_view_duplicate` | VIEW | 13 |
-| `borrLegal_KW` | TABLE | 2 |
-| `borrower_address_bak_20220823` | TABLE | 19 |
 | `borrower_address_fix` | TABLE | 16 |
 | `borrower_address_view` | VIEW | 18 |
-| `borrower_address_with_email` | TABLE | 2 |
 | `borrower_auth_with_borrower` | VIEW | 6 |
 | `borrower_auth_with_heading` | VIEW | 8 |
 | `borrower_backup` | TABLE | 24 |
@@ -103,7 +95,6 @@ Determine a view's grain from its underlying tables.
 | `borrower_duplicate_view` | VIEW | 14 |
 | `borrower_family_group_view` | VIEW | 13 |
 | `borrower_for_label` | VIEW | 39 |
-| `borrower_phone_bak` | TABLE | 10 |
 | `borrower_phone_sept_bak` | TABLE | 10 |
 | `borrower_phone_temp` | TABLE | 5 |
 | `borrower_phone_view` | VIEW | 6 |
@@ -125,7 +116,6 @@ Determine a view's grain from its underlying tables.
 | `bx86_noConvert` | TABLE | 3 |
 | `bx86_noConvert947` | TABLE | 4 |
 | `bx8600difeds` | TABLE | 1 |
-| `call_fl2` | TABLE | 1 |
 | `cat_copy_default_columns` | VIEW | 1 |
 | `cat_elem_val_view` | VIEW | 17 |
 | `cat_element_hold` | TABLE | 19 |
@@ -179,8 +169,6 @@ Determine a view's grain from its underlying tables.
 | `del_badload` | TABLE | 1 |
 | `del_bib` | TABLE | 1 |
 | `del_bib_acq` | TABLE | 1 |
-| `del_cfox` | TABLE | 1 |
-| `del_dda` | TABLE | 1 |
 | `del_ebooks_academic_complete` | TABLE | 1 |
 | `del_ebooks_pep_access` | TABLE | 1 |
 | `del_ebooks_ybp_dda` | TABLE | 1 |
@@ -189,10 +177,7 @@ Determine a view's grain from its underlying tables.
 | `del_eper` | TABLE | 1 |
 | `del_map_idaho` | TABLE | 1 |
 | `del_map_montana` | TABLE | 1 |
-| `del_mjm` | TABLE | 1 |
 | `del_Nevada` | TABLE | 1 |
-| `del_nov15` | TABLE | 1 |
-| `del_nov8` | TABLE | 1 |
 | `del_oregon` | TABLE | 1 |
 | `del_per` | TABLE | 1 |
 | `del_safari` | TABLE | 1 |
@@ -202,8 +187,6 @@ Determine a view's grain from its underlying tables.
 | `delbib_res` | TABLE | 1 |
 | `delbib1_eper` | TABLE | 1 |
 | `delete_audiobook` | TABLE | 1 |
-| `delete_chris` | TABLE | 1 |
-| `delete_chris2` | TABLE | 1 |
 | `delete_egd` | TABLE | 1 |
 | `delete_eper` | TABLE | 1 |
 | `delete_Eserials` | TABLE | 1 |
@@ -217,7 +200,6 @@ Determine a view's grain from its underlying tables.
 | `display_pattern_info` | VIEW | 10 |
 | `drop_EPER` | TABLE | 1 |
 | `dup_online` | TABLE | 1 |
-| `dups_049` | TABLE | 2 |
 | `ebrary_delete2` | TABLE | 1 |
 | `ebscoBib` | TABLE | 1 |
 | `ecco_fix` | TABLE | 1 |
@@ -236,7 +218,6 @@ Determine a view's grain from its underlying tables.
 | `fee_payment_log` | VIEW | 38 |
 | `fee_payment_view` | VIEW | 22 |
 | `findJPN` | TABLE | 1 |
-| `fix_adam` | TABLE | 3 |
 | `fixAdamProxy` | TABLE | 1 |
 | `fixAdamRedirect` | TABLE | 1 |
 | `fixProxy` | TABLE | 1 |
@@ -282,9 +263,6 @@ Determine a view's grain from its underlying tables.
 | `ipac_dummy_holdingsandcirc` | TABLE | 18 |
 | `ipac_upgrade_his` | TABLE | 4 |
 | `isbn_hawaii` | TABLE | 1 |
-| `isbn1` | TABLE | 3 |
-| `ISBN10` | TABLE | 2 |
-| `isbn2` | TABLE | 3 |
 | `issn_hawaii` | TABLE | 1 |
 | `issue_detail` | VIEW | 48 |
 | `item_access` | VIEW | 30 |
@@ -296,7 +274,6 @@ Determine a view's grain from its underlying tables.
 | `item_detail_borrower` | VIEW | 54 |
 | `ITEM_fix_status` | TABLE | 65 |
 | `item_info_view` | VIEW | 69 |
-| `ITEM_JUV` | TABLE | 65 |
 | `item_with_activity` | VIEW | 28 |
 | `item_with_borrower` | VIEW | 47 |
 | `item_with_borrower_and_proxy` | VIEW | 54 |
@@ -304,19 +281,6 @@ Determine a view's grain from its underlying tables.
 | `item_with_title` | VIEW | 58 |
 | `items_out` | VIEW | 43 |
 | `juv_change` | TABLE | 1 |
-| `kill_bib_eper` | TABLE | 1 |
-| `kill_bib_feb2024` | TABLE | 1 |
-| `kill_bib_feb2024_v1` | TABLE | 1 |
-| `kill_bib_feb2024_v2` | TABLE | 1 |
-| `kill_bib_feb2024_v3` | TABLE | 1 |
-| `kill_bib_feb22` | TABLE | 1 |
-| `kill_bibcfox1` | TABLE | 1 |
-| `kill_bibcfox2` | TABLE | 1 |
-| `kill_dda` | TABLE | 1 |
-| `kill_fod` | TABLE | 1 |
-| `killbib_jan132023` | TABLE | 1 |
-| `killbib_nov28` | TABLE | 1 |
-| `killbib_nov29` | TABLE | 1 |
 | `ldsbc_isbn` | TABLE | 1 |
 | `ldsbc_isbn_bib#` | TABLE | 1 |
 | `ldsbc_isbn_bib#2` | TABLE | 2 |
@@ -404,7 +368,6 @@ Determine a view's grain from its underlying tables.
 | `poliba1` | TABLE | 2 |
 | `poliba2` | TABLE | 2 |
 | `primo_load` | TABLE | 1 |
-| `primoLoad` | TABLE | 1 |
 | `pull_list` | VIEW | 54 |
 | `purchase_alert` | VIEW | 8 |
 | `purchase_alert_available` | VIEW | 3 |
@@ -682,8 +645,6 @@ Determine a view's grain from its underlying tables.
 | `tmp_bib6552` | TABLE | 1 |
 | `tmp_bib69x` | TABLE | 1 |
 | `tmp_bibdevo` | TABLE | 1 |
-| `tmp_bibupdate1` | TABLE | 1 |
-| `tmp_bibupdate2` | TABLE | 1 |
 | `tmp_bibupdate3` | TABLE | 1 |
 | `tmp_bibupdate4` | TABLE | 1 |
 | `tmp_bibupdateJune` | TABLE | 1 |
@@ -718,7 +679,6 @@ Determine a view's grain from its underlying tables.
 | `vendor_contract_with_vendor` | VIEW | 20 |
 | `vendor_with_credit` | VIEW | 30 |
 | `VHS_bib` | TABLE | 1 |
-| `vidplayer_tmp` | TABLE | 1 |
 | `voucher_display` | VIEW | 11 |
 | `voucher_with_vendor` | VIEW | 10 |
 | `word_index_mass_build_status` | TABLE | 1 |

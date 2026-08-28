@@ -12,7 +12,7 @@ multiply rows**. Collapse it with `EXISTS`, `DISTINCT`, or aggregation.
 This page is for orientation. For the columns of a specific object, grep the
 CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 
-**1402 objects** - 969 tables, 433 views, 14103 columns total.
+**1361 objects** - 928 tables, 433 views, 13949 columns total.
 
 | Object | Type | Cols | Grain (unique index) |
 | --- | --- | ---: | --- |
@@ -80,7 +80,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `auths_temp_830` | TABLE | 1 | (none) |
 | `auths_to_merge` | TABLE | 1 | `auth#` |
 | `authum_inverted1` | TABLE | 2 | `authnum_processed, auth#` |
-| `bad_item_delete` | TABLE | 1 | (none) |
 | `bb_update` | TABLE | 3 | (none) |
 | `bcode` | TABLE | 4 | `bcode` |
 | `bib` | TABLE | 12 | `bib#, tag, tagord` |
@@ -93,7 +92,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `bib_auth_subfield_control` | VIEW | 2 | (none) |
 | `bib_backup_ghjk` | TABLE | 1 | (none) |
 | `bib_backup_ghjk2` | TABLE | 1 | (none) |
-| `bib_call_lc` | TABLE | 1 | (none) |
 | `bib_category_code` | VIEW | 5 | (none) |
 | `bib_chi` | TABLE | 1 | (none) |
 | `bib_chi_date` | TABLE | 2 | (none) |
@@ -105,13 +103,11 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `bib_ebzCallBack` | TABLE | 12 | (none) |
 | `bib_element_value` | VIEW | 8 | (none) |
 | `bib_familySearch` | TABLE | 1 | (none) |
-| `bib_FOD` | TABLE | 1 | (none) |
 | `bib_format_code` | TABLE | 3 | `format` |
 | `bib_gw_date` | TABLE | 2 | (none) |
 | `bib_import_control` | TABLE | 5 | `tag, subfield, value` |
 | `bib_indicator_value` | VIEW | 6 | (none) |
 | `bib_instr` | TABLE | 4 | (none) |
-| `bib_isbn2` | TABLE | 2 | (none) |
 | `bib_long` | TABLE | 1 | (none) |
 | `bib_longtext` | TABLE | 6 | `bib#, tag, tagord` |
 | `bib_marcin_match_param` | VIEW | 9 | (none) |
@@ -130,7 +126,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `bib_tag_format` | VIEW | 5 | (none) |
 | `bib_tag_menu` | TABLE | 3 | `bib_tag_menu` |
 | `bib_tag_to_auth_tag` | VIEW | 4 | (none) |
-| `bib_test` | TABLE | 12 | (none) |
 | `bib_with_longtext` | VIEW | 10 | (none) |
 | `bib_word` | TABLE | 2 | `word#, bib#` |
 | `bibstat_260` | VIEW | 2 | (none) |
@@ -168,15 +163,12 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `borr_fam_grp_view_duplicate` | VIEW | 13 | (none) |
 | `borr_ldap_mapping` | TABLE | 11 | `ldap_profile, table_name, column_name, column_ord` |
 | `borr_password_history` | TABLE | 4 | `borrower#, ord` |
-| `borrLegal_KW` | TABLE | 2 | (none) |
 | `borrower` | TABLE | 44 | `borrower#` / `second_id` |
 | `borrower_911` | TABLE | 3 | `borrower#, security_group` |
 | `borrower_address` | TABLE | 19 | `borrower#, ord` |
-| `borrower_address_bak_20220823` | TABLE | 19 | (none) |
 | `borrower_address_fix` | TABLE | 16 | (none) |
 | `borrower_address_temp` | TABLE | 16 | `borrower#, ord` |
 | `borrower_address_view` | VIEW | 18 | (none) |
-| `borrower_address_with_email` | TABLE | 2 | (none) |
 | `borrower_alert_config` | TABLE | 6 | `borrower_email_alert` |
 | `borrower_auth` | TABLE | 5 | `borrower#, auth#, auth_type` |
 | `borrower_auth_heading` | TABLE | 5 | `auth#, auth_type` |
@@ -207,7 +199,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `borrower_pac_access_type` | TABLE | 3 | `borrower#` |
 | `borrower_pac_resource_time` | TABLE | 5 | `borrower#, pac_resource_type` |
 | `borrower_phone` | TABLE | 10 | `borrower#, ord` |
-| `borrower_phone_bak` | TABLE | 10 | (none) |
 | `borrower_phone_sept_bak` | TABLE | 10 | (none) |
 | `borrower_phone_temp` | TABLE | 5 | (none) |
 | `borrower_phone_view` | VIEW | 6 | (none) |
@@ -247,7 +238,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `byui_issn` | TABLE | 1 | `issn` |
 | `calendar_exception` | TABLE | 8 | `location, date` |
 | `calendar_week` | TABLE | 7 | `location, week_day` |
-| `call_fl2` | TABLE | 1 | (none) |
 | `call_istat` | TABLE | 5 | `call_type, beginning_call` |
 | `call_type` | TABLE | 6 | `call_type` |
 | `callchk_mismatches` | TABLE | 2 | `item#` |
@@ -408,8 +398,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `del_badload` | TABLE | 1 | (none) |
 | `del_bib` | TABLE | 1 | (none) |
 | `del_bib_acq` | TABLE | 1 | (none) |
-| `del_cfox` | TABLE | 1 | (none) |
-| `del_dda` | TABLE | 1 | (none) |
 | `del_ebooks_academic_complete` | TABLE | 1 | (none) |
 | `del_ebooks_pep_access` | TABLE | 1 | (none) |
 | `del_ebooks_ybp_dda` | TABLE | 1 | (none) |
@@ -418,10 +406,7 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `del_eper` | TABLE | 1 | (none) |
 | `del_map_idaho` | TABLE | 1 | (none) |
 | `del_map_montana` | TABLE | 1 | (none) |
-| `del_mjm` | TABLE | 1 | (none) |
 | `del_Nevada` | TABLE | 1 | (none) |
-| `del_nov15` | TABLE | 1 | (none) |
-| `del_nov8` | TABLE | 1 | (none) |
 | `del_oregon` | TABLE | 1 | (none) |
 | `del_per` | TABLE | 1 | (none) |
 | `del_safari` | TABLE | 1 | (none) |
@@ -431,8 +416,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `delbib_res` | TABLE | 1 | (none) |
 | `delbib1_eper` | TABLE | 1 | (none) |
 | `delete_audiobook` | TABLE | 1 | (none) |
-| `delete_chris` | TABLE | 1 | (none) |
-| `delete_chris2` | TABLE | 1 | (none) |
 | `delete_egd` | TABLE | 1 | (none) |
 | `delete_eper` | TABLE | 1 | (none) |
 | `delete_Eserials` | TABLE | 1 | (none) |
@@ -451,7 +434,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `drop_EPER` | TABLE | 1 | (none) |
 | `due_date` | TABLE | 7 | `location, due_date_type, after_date, btype, itype` |
 | `dup_online` | TABLE | 1 | (none) |
-| `dups_049` | TABLE | 2 | (none) |
 | `ebrary_delete2` | TABLE | 1 | (none) |
 | `ebscoBib` | TABLE | 1 | (none) |
 | `ecco_fix` | TABLE | 1 | (none) |
@@ -506,7 +488,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `final_marcive3` | TABLE | 1 | `bib#` |
 | `final_marcive4` | TABLE | 1 | `bib#` |
 | `findJPN` | TABLE | 1 | (none) |
-| `fix_adam` | TABLE | 3 | (none) |
 | `fixAdamProxy` | TABLE | 1 | (none) |
 | `fixAdamRedirect` | TABLE | 1 | (none) |
 | `fixProxy` | TABLE | 1 | (none) |
@@ -608,9 +589,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `isbn` | TABLE | 5 | `processed, id#` |
 | `isbn_hawaii` | TABLE | 1 | (none) |
 | `isbn_inverted` | TABLE | 2 | `isbn, bib#` |
-| `isbn1` | TABLE | 3 | (none) |
-| `ISBN10` | TABLE | 2 | (none) |
-| `isbn2` | TABLE | 3 | (none) |
 | `issn_hawaii` | TABLE | 1 | (none) |
 | `issn_inverted` | TABLE | 2 | `issn, bib#` |
 | `issue` | TABLE | 18 | `serial#, run_code, issue_date, issue_ord` |
@@ -629,7 +607,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `item_detail_borrower` | VIEW | 54 | (none) |
 | `ITEM_fix_status` | TABLE | 65 | (none) |
 | `item_info_view` | VIEW | 69 | (none) |
-| `ITEM_JUV` | TABLE | 65 | (none) |
 | `item_match_point` | TABLE | 6 | `import_source, column_name, ord` |
 | `item_status` | TABLE | 19 | `item_status` |
 | `item_transit` | TABLE | 8 | `item#, date, time` |
@@ -645,19 +622,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `itype_group_itype` | TABLE | 3 | `itype_group, itype` |
 | `juv_change` | TABLE | 1 | (none) |
 | `key_string_type` | TABLE | 7 | `key_string_type` |
-| `kill_bib_eper` | TABLE | 1 | (none) |
-| `kill_bib_feb2024` | TABLE | 1 | (none) |
-| `kill_bib_feb2024_v1` | TABLE | 1 | (none) |
-| `kill_bib_feb2024_v2` | TABLE | 1 | (none) |
-| `kill_bib_feb2024_v3` | TABLE | 1 | (none) |
-| `kill_bib_feb22` | TABLE | 1 | (none) |
-| `kill_bibcfox1` | TABLE | 1 | (none) |
-| `kill_bibcfox2` | TABLE | 1 | (none) |
-| `kill_dda` | TABLE | 1 | (none) |
-| `kill_fod` | TABLE | 1 | (none) |
-| `killbib_jan132023` | TABLE | 1 | (none) |
-| `killbib_nov28` | TABLE | 1 | (none) |
-| `killbib_nov29` | TABLE | 1 | (none) |
 | `l_usage_stat_type` | TABLE | 2 | `stat_type` |
 | `label` | TABLE | 6 | `label` |
 | `label_content` | TABLE | 17 | `label, label_number, start_line, start_column` |
@@ -884,7 +848,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `pref_group` | TABLE | 4 | `pref_group#` |
 | `pref_setting` | TABLE | 5 | `pref_category, pref_group#, user_id, pref_id` |
 | `primo_load` | TABLE | 1 | (none) |
-| `primoLoad` | TABLE | 1 | (none) |
 | `print_format_block` | TABLE | 11 | `location, block_print_type` |
 | `print_format_block_area1` | TABLE | 17 | `location, block_print_type, ord` |
 | `print_format_block_area2` | TABLE | 16 | `location, block_print_type, ord` |
@@ -894,7 +857,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `privilege_local` | TABLE | 4 | `privilege_local#` |
 | `processor` | TABLE | 8 | `processor` |
 | `program_feature` | TABLE | 5 | `program_name, program_feature` |
-| `ProQuest_Purchase_DeleteList` | TABLE | 1 | `bib#` |
 | `pubdate_inverted` | TABLE | 2 | `pubdate, bib#` |
 | `publication_pattern` | TABLE | 10 | `publication_pattern` |
 | `publisher_inverted` | TABLE | 2 | `publisher, bib#` |
@@ -1321,8 +1283,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `tmp_bib69x` | TABLE | 1 | (none) |
 | `tmp_bibdevo` | TABLE | 1 | (none) |
 | `tmp_bibRica` | TABLE | 1 | `BIB#` |
-| `tmp_bibupdate1` | TABLE | 1 | (none) |
-| `tmp_bibupdate2` | TABLE | 1 | (none) |
 | `tmp_bibupdate3` | TABLE | 1 | (none) |
 | `tmp_bibupdate4` | TABLE | 1 | (none) |
 | `tmp_bibupdateJune` | TABLE | 1 | (none) |
@@ -1386,7 +1346,6 @@ CSV - see "Looking up a column" in [AGENTS.md](../AGENTS.md).
 | `vendor_contract_with_vendor` | VIEW | 20 | (none) |
 | `vendor_with_credit` | VIEW | 30 | (none) |
 | `VHS_bib` | TABLE | 1 | (none) |
-| `vidplayer_tmp` | TABLE | 1 | (none) |
 | `view_name_primary_table` | TABLE | 4 | `view_name` |
 | `view_set` | TABLE | 2 | `view_set` |
 | `vip_configuration` | TABLE | 8 | `vip_configuration` |

@@ -5,8 +5,8 @@ Codex, Gemini) or any person writing a query for this repository. `CLAUDE.md` at
 the repo root points here; this file is the single source of truth for schema
 rules.
 
-The database is **SirsiDynix Horizon** on SQL Server: 969 tables, 433 views,
-14,103 columns. Its schema is old, irregular, and actively misleading in places.
+The database is **SirsiDynix Horizon** on SQL Server: 928 tables, 433 views,
+13,949 columns. Its schema is old, irregular, and actively misleading in places.
 The rules below exist because each one has already cost somebody a wrong answer.
 
 ---

@@ -153,7 +153,7 @@ relationships are expressed, since they are not declared as foreign keys.
 ## Keys, grain, and the `PK_` trap
 
 ### Only 6 declared primary keys exist
-Across 969 tables, exactly **6 columns** carry a declared `PRIMARY KEY`
+Across 928 tables, exactly **6 columns** carry a declared `PRIMARY KEY`
 constraint:
 
 | Table | Key |
@@ -203,7 +203,7 @@ is built to guard against. Two `590`s and three items give six rows.
 ## Foreign keys are the exception, not the rule
 
 The database declares **166 foreign key columns**
-([`index/joins.md`](index/joins.md)) — a small number for 969 tables. Most
+([`index/joins.md`](index/joins.md)) — a small number for 928 tables. Most
 relationships, including `bib` → `item`, are undeclared and held together by
 convention alone.
 
@@ -259,7 +259,7 @@ schema exports are SQL Server 2005+ and are unaffected by compatibility level.
 
 ## Local tables mixed in with Horizon's
 
-The 969 tables include local additions — scratch tables, backups, and one-off
+The 928 tables include local additions — scratch tables, backups, and one-off
 working sets — which are not part of Horizon and may hold stale data:
 
 - 51 `tmp*` tables

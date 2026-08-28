@@ -123,7 +123,7 @@ returns the wrong rows.
 > it applies whichever assistant or person is doing the work. Everything below is
 > a summary of it.
 
-The complete schema is exported and committed: **969 tables, 433 views, 14,103
+The complete schema is exported and committed: **928 tables, 433 views, 13,949
 columns** in [`horizon-schema/`](horizon-schema/README.md), with documentation
 in [`docs/schema/`](docs/schema/README.md).
 

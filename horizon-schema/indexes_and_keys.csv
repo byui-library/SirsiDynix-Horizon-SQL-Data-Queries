@@ -110,7 +110,6 @@ dbo,bib_auth_shared_value,bib_auth_shared_value_index,CLUSTERED,,yes,1,vset_name
 dbo,bib_auth_shared_value,bib_auth_shared_value_index,CLUSTERED,,yes,2,value,ASC,KEY
 dbo,bib_backup_ghjk,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_backup_ghjk2,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,bib_call_lc,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_chi,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_chi_date,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_co_tag,bib_co_tag_index,CLUSTERED,,yes,1,tag,ASC,KEY
@@ -126,13 +125,11 @@ dbo,bib_control,bib_control_selection_index,NONCLUSTERED,,,1,selection,ASC,KEY
 dbo,bib_control,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_ebrary,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_ebrary,idxt,NONCLUSTERED,,,1,text,ASC,KEY
-dbo,bib_FOD,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_format_code,bib_format_code_index,CLUSTERED,,yes,1,format,ASC,KEY
 dbo,bib_gw_date,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_import_control,bib_import_control_index,CLUSTERED,,yes,1,tag,ASC,KEY
 dbo,bib_import_control,bib_import_control_index,CLUSTERED,,yes,2,subfield,ASC,KEY
 dbo,bib_import_control,bib_import_control_index,CLUSTERED,,yes,3,value,ASC,KEY
-dbo,bib_isbn2,idx,NONCLUSTERED,,,1,BIB#,ASC,KEY
 dbo,bib_long,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,bib_longtext,bib_longtext_idx,CLUSTERED,,yes,1,bib#,ASC,KEY
 dbo,bib_longtext,bib_longtext_idx,CLUSTERED,,yes,2,tag,ASC,KEY
@@ -195,9 +192,6 @@ dbo,borr_ldap_mapping,PK_BORR_LDAP_MAP,CLUSTERED,,yes,3,column_name,ASC,KEY
 dbo,borr_ldap_mapping,PK_BORR_LDAP_MAP,CLUSTERED,,yes,4,column_ord,ASC,KEY
 dbo,borr_password_history,PK_borr_password_history,CLUSTERED,,yes,1,borrower#,ASC,KEY
 dbo,borr_password_history,PK_borr_password_history,CLUSTERED,,yes,2,ord,ASC,KEY
-dbo,borrLegal_KW,borrLegal_KW_borrower#_index,CLUSTERED,,,1,word#,ASC,KEY
-dbo,borrLegal_KW,borrLegal_KW_borrower#_index,CLUSTERED,,,2,borrower#,ASC,KEY
-dbo,borrLegal_KW,borrLegal_KW2_borrower#_index,NONCLUSTERED,,,1,borrower#,ASC,KEY
 dbo,borrower,borrower_bc_patron_id_index,NONCLUSTERED,,,1,bc_patron_id,ASC,KEY
 dbo,borrower,borrower_birth_index,NONCLUSTERED,,,1,birth_date,ASC,KEY
 dbo,borrower,borrower_borrower#_index,NONCLUSTERED,,yes,1,borrower#,ASC,KEY
@@ -224,10 +218,8 @@ dbo,borrower_address,borrower_address_fields_index,NONCLUSTERED,,,5,postal_code,
 dbo,borrower_address,borrower_address_fields_index,NONCLUSTERED,,,6,city_st,ASC,KEY
 dbo,borrower_address,borrower_address_index,NONCLUSTERED,,yes,1,borrower#,ASC,KEY
 dbo,borrower_address,borrower_address_index,NONCLUSTERED,,yes,2,ord,ASC,KEY
-dbo,borrower_address_bak_20220823,idx,NONCLUSTERED,,,1,borrower#,ASC,KEY
 dbo,borrower_address_temp,bor_addr_temp_index,CLUSTERED,,yes,1,borrower#,ASC,KEY
 dbo,borrower_address_temp,bor_addr_temp_index,CLUSTERED,,yes,2,ord,ASC,KEY
-dbo,borrower_address_with_email,idx,NONCLUSTERED,,,1,borrower#,ASC,KEY
 dbo,borrower_alert_config,borrower_alert_config_index,CLUSTERED,,yes,1,borrower_email_alert,ASC,KEY
 dbo,borrower_auth,borrower_auth_auth_index,NONCLUSTERED,,,1,auth#,ASC,KEY
 dbo,borrower_auth,borrower_auth_auth_index,NONCLUSTERED,,,2,auth_type,ASC,KEY
@@ -272,7 +264,6 @@ dbo,borrower_pac_resource_time,borrower_pac_resource_tm_index,CLUSTERED,,yes,2,p
 dbo,borrower_phone,borrower_phone_index,NONCLUSTERED,,yes,1,borrower#,ASC,KEY
 dbo,borrower_phone,borrower_phone_index,NONCLUSTERED,,yes,2,ord,ASC,KEY
 dbo,borrower_phone,borrower_phone_no_index,NONCLUSTERED,,,1,phone_no,ASC,KEY
-dbo,borrower_phone_bak,idx,NONCLUSTERED,,,1,borrower#,ASC,KEY
 dbo,borrower_word,borrower_word_borrower_index,NONCLUSTERED,,,1,borrower#,ASC,KEY
 dbo,borrower_word,borrower_word_index,CLUSTERED,,yes,1,word#,ASC,KEY
 dbo,borrower_word,borrower_word_index,CLUSTERED,,yes,2,borrower#,ASC,KEY
@@ -317,7 +308,6 @@ dbo,calendar_exception,calendar_exception_index,CLUSTERED,,yes,1,location,ASC,KE
 dbo,calendar_exception,calendar_exception_index,CLUSTERED,,yes,2,date,ASC,KEY
 dbo,calendar_week,calendar_week_index,CLUSTERED,,yes,1,location,ASC,KEY
 dbo,calendar_week,calendar_week_index,CLUSTERED,,yes,2,week_day,ASC,KEY
-dbo,call_fl2,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,call_istat,call_istat_index,CLUSTERED,,yes,1,call_type,ASC,KEY
 dbo,call_istat,call_istat_index,CLUSTERED,,yes,2,beginning_call,ASC,KEY
 dbo,call_type,call_type_index,CLUSTERED,,yes,1,call_type,ASC,KEY
@@ -613,8 +603,6 @@ dbo,del_alex,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_badload,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_bib,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_bib_acq,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,del_cfox,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,del_dda,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_ebooks_academic_complete,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_ebooks_pep_access,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_ebooks_ybp_dda,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
@@ -622,7 +610,6 @@ dbo,del_ebrary,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_eper,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_map_idaho,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_map_montana,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,del_mjm,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_Nevada,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_oregon,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,del_per,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
@@ -633,8 +620,6 @@ dbo,delbib_eper,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,delbib_res,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,delbib1_eper,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,delete_audiobook,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,delete_chris,idx,NONCLUSTERED,,,1,bib_number,ASC,KEY
-dbo,delete_chris2,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,delete_egd,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,delete_eper,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,delete_Eserials,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
@@ -660,7 +645,6 @@ dbo,due_date,due_date_index,CLUSTERED,,yes,3,after_date,ASC,KEY
 dbo,due_date,due_date_index,CLUSTERED,,yes,4,btype,ASC,KEY
 dbo,due_date,due_date_index,CLUSTERED,,yes,5,itype,ASC,KEY
 dbo,dup_online,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,dups_049,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,ebscoBib,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,ecco_fix,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,ed_column,ed_column_index,CLUSTERED,,yes,1,mq_view,ASC,KEY
@@ -747,7 +731,6 @@ dbo,final_marcive2,m_idx,CLUSTERED,,yes,1,bib#,ASC,KEY
 dbo,final_marcive3,m_idx,CLUSTERED,,yes,1,bib#,ASC,KEY
 dbo,final_marcive4,m_idx,CLUSTERED,,yes,1,bib#,ASC,KEY
 dbo,findJPN,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,fix_adam,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,fixAdamProxy,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,fixAdamRedirect,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,fixProxy,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
@@ -893,8 +876,6 @@ dbo,isbn_hawaii,idx,NONCLUSTERED,,,1,isbn,ASC,KEY
 dbo,isbn_inverted,isbn_inverted_bib_index,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,isbn_inverted,isbn_inverted_index,CLUSTERED,,yes,1,isbn,ASC,KEY
 dbo,isbn_inverted,isbn_inverted_index,CLUSTERED,,yes,2,bib#,ASC,KEY
-dbo,isbn1,idx,NONCLUSTERED,,,1,BIB#,ASC,KEY
-dbo,isbn2,idx,NONCLUSTERED,,,1,BIB#,ASC,KEY
 dbo,issn_hawaii,idx,NONCLUSTERED,,,1,issn,ASC,KEY
 dbo,issn_inverted,issn_inverted_bib_index,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,issn_inverted,issn_inverted_index,CLUSTERED,,yes,1,issn,ASC,KEY
@@ -937,13 +918,6 @@ dbo,itype_group,PK_itype_group,CLUSTERED,,yes,1,itype_group,ASC,KEY
 dbo,itype_group_itype,PK_itype_group_itype,CLUSTERED,,yes,1,itype_group,ASC,KEY
 dbo,itype_group_itype,PK_itype_group_itype,CLUSTERED,,yes,2,itype,ASC,KEY
 dbo,key_string_type,key_string_type_index,CLUSTERED,,yes,1,key_string_type,ASC,KEY
-dbo,kill_bib_eper,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,kill_bib_feb22,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,kill_bibcfox2,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,kill_fod,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,killbib_jan132023,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,killbib_nov28,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,killbib_nov29,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,l_usage_stat_type,PK_l_usage_stat_type,CLUSTERED,,yes,1,stat_type,ASC,KEY
 dbo,label,label_index,CLUSTERED,,yes,1,label,ASC,KEY
 dbo,label_content,PK_LABEL_CONTENT,CLUSTERED,,yes,1,label,ASC,KEY
@@ -1304,7 +1278,6 @@ dbo,pref_setting,PK_PREF_SETTING,CLUSTERED,,yes,2,pref_group#,ASC,KEY
 dbo,pref_setting,PK_PREF_SETTING,CLUSTERED,,yes,3,user_id,ASC,KEY
 dbo,pref_setting,PK_PREF_SETTING,CLUSTERED,,yes,4,pref_id,ASC,KEY
 dbo,primo_load,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,primoLoad,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,print_format_block,print_format_block_index,CLUSTERED,,yes,1,location,ASC,KEY
 dbo,print_format_block,print_format_block_index,CLUSTERED,,yes,2,block_print_type,ASC,KEY
 dbo,print_format_block_area1,print_format_block_a1_index,CLUSTERED,,yes,1,location,ASC,KEY
@@ -1322,8 +1295,6 @@ dbo,privilege_local,PK_PRIVILEGE_LOCAL,CLUSTERED,,yes,1,privilege_local#,ASC,KEY
 dbo,processor,processor_index,CLUSTERED,,yes,1,processor,ASC,KEY
 dbo,program_feature,program_feature_index,CLUSTERED,,yes,1,program_name,ASC,KEY
 dbo,program_feature,program_feature_index,CLUSTERED,,yes,2,program_feature,ASC,KEY
-dbo,ProQuest_Purchase_DeleteList,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,ProQuest_Purchase_DeleteList,PK_ProQuest_Purchase_DeleteList,CLUSTERED,yes,yes,1,bib#,ASC,KEY
 dbo,pubdate_inverted,pubdate_inverted_bib_idx,NONCLUSTERED,,,1,bib#,ASC,KEY
 dbo,pubdate_inverted,pubdate_inverted_idx,CLUSTERED,,yes,1,pubdate,ASC,KEY
 dbo,pubdate_inverted,pubdate_inverted_idx,CLUSTERED,,yes,2,bib#,ASC,KEY
@@ -1847,7 +1818,6 @@ dbo,vendor_address,vendor_address_index,CLUSTERED,,yes,2,ord,ASC,KEY
 dbo,vendor_contract,vendor_contract_index,CLUSTERED,,yes,1,vendor#,ASC,KEY
 dbo,vendor_contract,vendor_contract_index,CLUSTERED,,yes,2,vendor_contract,ASC,KEY
 dbo,VHS_bib,idx,NONCLUSTERED,,,1,bib#,ASC,KEY
-dbo,vidplayer_tmp,idx,NONCLUSTERED,,,1,BIB#,ASC,KEY
 dbo,view_name_primary_table,view_name_index,NONCLUSTERED,,yes,1,view_name,ASC,KEY
 dbo,view_set,view_set_index,CLUSTERED,,yes,1,view_set,ASC,KEY
 dbo,vip_configuration,PK_VIP_CONFIGURATION,CLUSTERED,,yes,1,vip_configuration,ASC,KEY

@@ -21,23 +21,26 @@ The zero item count means that particular set contained no serials with issues
 or predictions attached. Do not generalise that — KillBib skips such copies, so
 a future list can leave items behind after a *successful* run.
 
-### Server-side cleanup
+### Server-side cleanup — DONE
 
-The drop script is documented as **Step 6** of
-[`590-proquest-new-by-creator-report`](../solutions/590-proquest-new-by-creator-report/README.md).
-Four scratch objects were created during the work: three delete-list tables and
-one empty probe table.
+**42 scratch tables dropped 2026-08-28, 0 failures**, using
+[`db-scratch-table-cleanup`](../solutions/db-scratch-table-cleanup/README.md).
+That swept up this job's delete lists along with years of accumulated scratch:
+killbib lists from past runs, ISBN working sets, `del_*`/`tmp_*` copies, and
+three stale patron-data backups holding roughly 530,000 records.
 
-`SET LOCK_TIMEOUT` is part of that script deliberately — one superseded table
-may still be held by an orphaned session from an interrupted run, and without it
-the `DROP` hangs rather than saying so. Such a table is harmless (one column of
-integers); leave it and retry, or have a sysadmin `KILL` the session. The
-ordinary SQL login cannot enumerate sessions: `sys.dm_exec_sessions` silently
-returns only its own row rather than erroring, which reads like "no orphan
-exists".
+**Three tables were pulled off the candidate list as vendor**, not scratch:
+`item_circ_renewal`, `bstat_group` and `sort_order`. All three had a
+post-install `create_date` because something rebuilt them, which makes a vendor
+table look local. The dependency check did not catch them — a standalone lookup
+table has nothing referencing it. Step 1e of that solution exists because of
+this, and is what separates the two.
 
-**Dropping the list tables loses no audit trail** — that is the timestamped CSV
-in `killbib-audit\`, written before anything was deleted.
+The schema export was refreshed afterwards and matches the live database:
+928 tables, 433 views, 13,949 columns.
+
+**Dropping a delete list loses no audit trail** — that is the timestamped CSV in
+`killbib-audit\`, written before anything was deleted.
 
 ---
 
@@ -45,7 +48,7 @@ in `killbib-audit\`, written before anything was deleted.
 
 ### Schema reference (new)
 
-The full schema is exported and committed: **969 tables, 433 views, 14,103
+The full schema is exported and committed: **928 tables, 433 views, 13,949
 columns** in `horizon-schema/`, with documentation in `docs/schema/`.
 [`docs/schema/AGENTS.md`](schema/AGENTS.md) is the entry point — tool-neutral
 rules for writing correct SQL here.
@@ -122,20 +125,20 @@ decision was made not to rewrite history: it is a hostname rather than a
 credential, it is already public, and force-pushing a public repo breaks clones
 while GitHub still serves the old commit by SHA. No password was ever committed.
 
-**Accepted residual risk 2 — a staff username inside real table names.**
-The Horizon database contains scratch tables named after the staff member who
-created them (`del_<user>`, `kill_bib<user>1`, `kill_bib<user>2`). Those names
-appear in `horizon-schema/all_tables_all_views.csv` and in the index pages
-generated from it, because that export is a faithful dump of the database.
+**Residual risk 2 — RESOLVED 2026-08-28.** The database held scratch tables
+named after the staff member who created them, so a username appeared in the
+schema export as *data*. Redacting the export was rejected — it exists so a grep
+for a real object name finds it, and a doctored export would silently disagree
+with the database, which is the exact class of error this repository guards
+against.
 
-Redacting them was rejected: the export exists so that a grep for a real object
-name finds it, and a doctored export would silently disagree with the database —
-which is precisely the class of error this repository is built to prevent. The
-redaction guard therefore excludes `horizon-schema/` and `docs/schema/index/`,
-and says so in the code.
+The scratch-table cleanup dropped those tables at the source. The export was
+refreshed, the username is gone, and the redaction guard's blind spots
+(`horizon-schema/`, `docs/schema/index/`) have been removed — it scans
+everything except frozen historical records again.
 
-**If that exposure is unacceptable**, the fix is on the database side — rename
-those three scratch tables and re-export — not in the repository.
+If a future export reintroduces such a name, fix it by renaming the table, not
+by re-adding an exclusion.
 
 ---
 
@@ -153,9 +156,8 @@ failure there as blocking — this repository is public.
 
 ## 4. Known-good next tasks
 
-- **Drop the scratch tables** if not yet done — Step 6 of the ProQuest solution.
-- **Run `Query B`** on the 2026-08-25 set if you want the per-`590` detail —
-  purchase vs DDA vs subscription — before or after the delete.
+- **Nothing outstanding.** The delete run is verified, the scratch tables are
+  dropped, and the schema export matches the live database.
 - **Write the next solution** with the scaffold rather than by hand:
 
   ```powershell

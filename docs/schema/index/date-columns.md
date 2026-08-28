@@ -6,7 +6,7 @@ Every `smallint` column whose name marks it as a date. These do **not** hold
 a SQL `date`; they hold a day count. See "Dates" in
 [conventions.md](../conventions.md) for how to filter one correctly.
 
-**952 columns across 296 objects.**
+**941 columns across 294 objects.**
 
 | Object | Column | Paired time column |
 | --- | --- | --- |
@@ -123,8 +123,6 @@ a SQL `date`; they hold a day count. See "Dates" in
 | `borrower` | `registration_date` | - |
 | `borrower_address` | `valid_from_date` | - |
 | `borrower_address` | `valid_to_date` | - |
-| `borrower_address_bak_20220823` | `valid_from_date` | - |
-| `borrower_address_bak_20220823` | `valid_to_date` | - |
 | `borrower_address_fix` | `valid_from_date` | - |
 | `borrower_address_fix` | `valid_to_date` | - |
 | `borrower_address_temp` | `valid_from_date` | - |
@@ -501,15 +499,6 @@ a SQL `date`; they hold a day count. See "Dates" in
 | `item_info_view` | `last_status_update_date` | `last_status_update_time` |
 | `item_info_view` | `last_update_date` | - |
 | `item_info_view` | `reserve_date` | - |
-| `ITEM_JUV` | `available_date` | - |
-| `ITEM_JUV` | `creation_date` | - |
-| `ITEM_JUV` | `due_date` | `due_time` |
-| `ITEM_JUV` | `last_cko_date` | `last_cko_time` |
-| `ITEM_JUV` | `last_inhouse_use_date` | - |
-| `ITEM_JUV` | `last_inventory_date` | - |
-| `ITEM_JUV` | `last_status_update_date` | - |
-| `ITEM_JUV` | `last_update_date` | - |
-| `ITEM_JUV` | `reserve_date` | - |
 | `item_transit` | `date` | `time` |
 | `item_with_activity` | `creation_date` | - |
 | `item_with_activity` | `last_status_update_date` | `last_status_update_time` |

@@ -1,4 +1,4 @@
-# Library-SQL-Toolbox
+﻿# Library-SQL-Toolbox
 
 A collection of SQL scripts and data-integrity solutions for Integrated Library
 Systems (ILS) — primarily SirsiDynix Horizon on SQL Server, also Symphony.
@@ -32,8 +32,8 @@ tools/            PowerShell: doc generators, delete-run scripts
 ## Schema reference
 
 **Before writing a query, read [docs/schema/](./docs/schema/).** The full schema
-of this Horizon database is exported and committed — **969 tables, 433 views,
-14,103 columns** — along with documentation of the conventions that make it
+of this Horizon database is exported and committed — **928 tables, 433 views,
+13,949 columns** — along with documentation of the conventions that make it
 tricky: integer dates, user-defined types, unique-index grain, and the
 Cartesian-product hazard between `bib` and `item`.
 
@@ -59,6 +59,7 @@ schema reason it is hard, and the step-by-step implementation.
 * **[590-ebk-049-dda-not-purchased-report](./solutions/590-ebk-049-dda-not-purchased-report)** — read-only report of EBK records with a DDA `590` and no purchase note, identified by the bib's own `049` tag.
 * **[590-proquest-purchase-removal-report](./solutions/590-proquest-purchase-removal-report)** — read-only `bib#` list of EBK records carrying both a ProQuest and a purchase `590` note, for handoff to Horizon's batch delete ahead of a fresh ProQuest ingest.
 * **[590-proquest-new-by-creator-report](./solutions/590-proquest-new-by-creator-report)** — read-only report of bib records created by a given operator on a given day whose `590` notes mention ProQuest, plus the end-to-end delete-list build.
+* **[db-scratch-table-cleanup](./solutions/db-scratch-table-cleanup)**: Identifies local scratch/backup tables that Horizon did not ship, checks nothing depends on them, and generates a reviewed DROP list.
 
 ### Generated alongside each README
 

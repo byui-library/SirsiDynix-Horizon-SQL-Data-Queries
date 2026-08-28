@@ -7,8 +7,8 @@ Captured **2026-08-27** from the live database.
 
 | File | Rows | Contents |
 | --- | ---: | --- |
-| `all_tables_all_views.csv` | 14,103 | Every column of every table and view |
-| `indexes_and_keys.csv` | 1,898 | Every index, its columns, uniqueness |
+| `all_tables_all_views.csv` | 13,949 | Every column of every table and view |
+| `indexes_and_keys.csv` | 1,868 | Every index, its columns, uniqueness |
 | `foreign_keys.csv` | 166 | Every declared foreign key column |
 
 ## No header row

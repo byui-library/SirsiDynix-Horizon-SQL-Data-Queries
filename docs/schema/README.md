@@ -1,7 +1,7 @@
 # Horizon schema reference
 
 Verified schema for this SirsiDynix Horizon database on SQL Server —
-**969 tables, 433 views, 14,103 columns**, captured 2026-08-27.
+**928 tables, 433 views, 13,949 columns**, captured 2026-08-27.
 
 **Read this before writing any query.** Never infer a table or column name from
 convention; every name used in this repo must be looked up here or in the raw
@@ -25,8 +25,8 @@ Gemini, and to people.
 
 ```
 horizon-schema/              raw CSV exports — the source of truth
-  all_tables_all_views.csv     14,103 columns
-  indexes_and_keys.csv         1,898 index entries
+  all_tables_all_views.csv     13,949 columns
+  indexes_and_keys.csv         1,868 index entries
   foreign_keys.csv             166 FK columns
 docs/schema/
   README.md                  this page
@@ -65,7 +65,7 @@ Rebuilt by `tools/Generate-SchemaDocs.ps1`; **never hand-edit them**.
 
 | Page | Contents |
 | --- | --- |
-| [index/all-objects.md](index/all-objects.md) | All 1,402 objects: type, column count, grain |
+| [index/all-objects.md](index/all-objects.md) | All 1,361 objects: type, column count, grain |
 | [index/joins.md](index/joins.md) | The 166 declared foreign keys |
 | [index/no-unique-index.md](index/no-unique-index.md) | Objects with no unique index — fan-out risks |
 | [index/date-columns.md](index/date-columns.md) | All 951 integer date columns |
