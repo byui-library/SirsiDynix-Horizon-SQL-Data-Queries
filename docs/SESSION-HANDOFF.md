@@ -57,7 +57,7 @@ Findings worth not rediscovering:
 
 - **Only 6 declared primary keys exist** in the whole database. Hundreds of
   indexes are *named* `PK_*` and are not. Grain comes from unique indexes.
-- **951 `smallint` date columns across 295 tables** are day counts, not dates,
+- **941 `smallint` date columns across 294 tables** are day counts, not dates,
   with time in a separate `_time` column. The **`1970-01-01` epoch is verified**
   — proven with a weekday histogram, because a `MAX(create_date)` check cannot
   detect a one-day error.

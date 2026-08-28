@@ -5,7 +5,7 @@ enforceable rules are in [AGENTS.md](AGENTS.md); this page explains *why* they
 are what they are, and holds the verification queries.
 
 Everything here is derived from the exports in
-[`horizon-schema/`](../../horizon-schema/), captured 2026-08-27.
+[`horizon-schema/`](../../horizon-schema/), refreshed 2026-08-28.
 
 ---
 
@@ -14,7 +14,7 @@ Everything here is derived from the exports in
 ### The convention
 A Horizon date column is a **`smallint` day count**, not a SQL `date`. Time of
 day, where kept at all, is a **separate paired `_time` column**. There are
-**951 such date columns across 295 tables** — nearly a third of the database —
+**941 such date columns across 294 tables** — nearly a third of the database —
 and 253 paired time columns.
 
 This is why the pattern matters so much: get the decoding wrong once and every
@@ -259,19 +259,18 @@ schema exports are SQL Server 2005+ and are unaffected by compatibility level.
 
 ## Local tables mixed in with Horizon's
 
-The 928 tables include local additions — scratch tables, backups, and one-off
-working sets — which are not part of Horizon and may hold stale data:
+Not every table here is Horizon's. Scratch copies, pre-change backups and
+one-off working sets accumulate alongside the vendor schema, and they can hold
+arbitrarily stale data. A `*_bak` table is not the table it was copied from.
 
-- 51 `tmp*` tables
-- 24 `del*` tables
-- `borrower_bak`, `ipac_databases_bak`, `borrower_bak`
-- `ITEM_JUV`, `ITEM_fix_status`, `temp_circ_longterm_history`
-- `ProQuest_Purchase_DeleteList` (created by this repo)
+**Names are suggestive, not authoritative — in both directions.** `tmp`, `del`,
+`temp` and `bak` prefixes also appear on tables Horizon itself ships, so a
+name-based rule would eventually delete a vendor table. Equally, a vendor table
+that was rebuilt at some point looks locally-created by its `create_date`.
 
-`ITEM_JUV` is not `item`; `borrower_bak` is not `borrower`. The naming is
-suggestive but not authoritative — confirm a table's role before querying it.
-
-> Running the origin-and-row-count export described in [README.md](README.md)
-> separates these definitively: tables sharing the install `create_date` are
-> Horizon-native, later ones are local, and row counts show which are populated
-> at all. Until then this list is a naming heuristic, not a verified inventory.
+No list of them is maintained here: it would be stale the day after any cleanup,
+and this page is meant to be trustworthy. Derive it live instead —
+[`solutions/db-scratch-table-cleanup`](../../solutions/db-scratch-table-cleanup/README.md)
+classifies by creation-time clustering plus structural signals (column count,
+declared PK, user-defined-type columns), which is what actually separates the
+two. It last ran on 2026-08-28 and removed 42 tables.

@@ -122,43 +122,55 @@ footer code{background:var(--surface-2);padding:.1em .35em;border-radius:3px;}
     <div class="codebar"><span class="codelabel">1a. Find the install/upgrade clusters</span><button class="copy">Copy</button></div>
     <pre><code>-- Large counts on one timestamp = a vendor install or upgrade event.
 -- Isolated singles = created by hand.
+-- max_created is the value to paste into @VendorCutoff below: the last moment
+-- of the cluster, at the second precision the later steps compare on.
 SELECT
-    CONVERT(char(16), t.create_date, 120) AS [created_at],
-    COUNT(*)                              AS [tables_created]
+    CONVERT(char(16), t.create_date, 120)      AS [cluster],
+    COUNT(*)                                   AS [tables_created],
+    CONVERT(char(19), MAX(t.create_date), 120) AS [max_created]
 FROM sys.tables t
 WHERE t.is_ms_shipped = 0
 GROUP BY CONVERT(char(16), t.create_date, 120)
-HAVING COUNT(*) &gt; 0
-ORDER BY [created_at];</code></pre>
+ORDER BY [cluster];</code></pre>
   </div>
 </section>
 <section class="step">
   <div class="step-head">
     <div class="step-num">2</div>
     <div class="step-title">
-      <h2>1b. Candidate list</h2>
+      <h2>1b. Candidates, with the evidence for judging them</h2>
     </div>
     <span class="chip read">Read-only</span>
   </div>
   <div class="codewrap">
-    <div class="codebar"><span class="codelabel">1b. Candidate list</span><button class="copy">Copy</button></div>
-    <pre><code>DECLARE @VendorCutoff datetime = '2026-01-01 00:00:00';   -- from step 1a
+    <div class="codebar"><span class="codelabel">1b. Candidates, with the evidence for judging them</span><button class="copy">Copy</button></div>
+    <pre><code>DECLARE @VendorCutoff datetime = '2099-01-01 00:00:00';   -- from 1a
 
 SELECT
     t.name                                   AS [table_name],
     CONVERT(char(19), t.create_date, 120)    AS [created],
     CONVERT(char(19), t.modify_date, 120)    AS [last_modified],
     ISNULL(SUM(p.rows), 0)                   AS [rows],
-    CAST(ROUND(SUM(a.total_pages) * 8.0 / 1024, 1) AS decimal(10,1)) AS [mb]
+    (SELECT COUNT(*) FROM sys.columns c
+      WHERE c.object_id = t.object_id)       AS [columns],
+    -- Vendor tables are built from Horizon's user-defined types. A scratch
+    -- copy made by SELECT INTO inherits base types instead.
+    (SELECT COUNT(*) FROM sys.columns c
+     INNER JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+      WHERE c.object_id = t.object_id AND ty.is_user_defined = 1) AS [udt_cols],
+    CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
+                      WHERE i.object_id = t.object_id AND i.is_primary_key = 1)
+         THEN 'YES' ELSE '' END              AS [declared_pk],
+    CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
+                      WHERE i.object_id = t.object_id AND i.is_unique = 1)
+         THEN 'yes' ELSE '' END              AS [unique_idx]
 FROM sys.tables t
 LEFT JOIN sys.partitions p
        ON p.object_id = t.object_id AND p.index_id IN (0,1)
-LEFT JOIN sys.allocation_units a
-       ON a.container_id = p.partition_id
 WHERE t.is_ms_shipped = 0
   AND t.create_date &gt; @VendorCutoff
-GROUP BY t.name, t.create_date, t.modify_date
-ORDER BY t.create_date;</code></pre>
+GROUP BY t.name, t.object_id, t.create_date, t.modify_date
+ORDER BY [udt_cols] DESC, [columns] DESC, t.name;</code></pre>
   </div>
 </section>
 <section class="step">
@@ -171,9 +183,9 @@ ORDER BY t.create_date;</code></pre>
   </div>
   <div class="codewrap">
     <div class="codebar"><span class="codelabel">1c. Does anything depend on them?</span><button class="copy">Copy</button></div>
-    <pre><code>DECLARE @VendorCutoff datetime = '2026-01-01 00:00:00';
+    <pre><code>DECLARE @VendorCutoff datetime = '2099-01-01 00:00:00';   -- from 1a
 
--- Views / procedures / functions that reference a candidate
+-- Views / procedures / functions referencing a candidate
 SELECT
     OBJECT_NAME(d.referencing_id) AS [referenced_by],
     o.type_desc                   AS [referencer_type],
@@ -185,11 +197,11 @@ WHERE t.is_ms_shipped = 0
   AND t.create_date &gt; @VendorCutoff
 ORDER BY d.referenced_entity_name, [referenced_by];
 
--- Foreign keys pointing AT a candidate (would block the DROP anyway)
+-- Foreign keys pointing AT a candidate (these would block the DROP anyway)
 SELECT
-    fk.name                            AS [fk_name],
-    OBJECT_NAME(fk.parent_object_id)   AS [child_table],
-    t.name                             AS [candidate_table]
+    fk.name                          AS [fk_name],
+    OBJECT_NAME(fk.parent_object_id) AS [child_table],
+    t.name                           AS [candidate_table]
 FROM sys.foreign_keys fk
 INNER JOIN sys.tables t ON t.object_id = fk.referenced_object_id
 WHERE t.is_ms_shipped = 0
@@ -201,46 +213,20 @@ ORDER BY t.name;</code></pre>
   <div class="step-head">
     <div class="step-num">4</div>
     <div class="step-title">
-      <h2>1e. Vendor-signal check — 1c is not sufficient on its own</h2>
-    </div>
-    <span class="chip read">Read-only</span>
-  </div>
-  <div class="codewrap">
-    <div class="codebar"><span class="codelabel">1e. Vendor-signal check — 1c is not sufficient on its own</span><button class="copy">Copy</button></div>
-    <pre><code>DECLARE @VendorCutoff datetime = '2022-04-11 06:45:59';
-
-SELECT
-    t.name                                            AS [table_name],
-    (SELECT COUNT(*) FROM sys.columns c
-      WHERE c.object_id = t.object_id)                AS [columns],
-    CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
-                      WHERE i.object_id = t.object_id AND i.is_primary_key = 1)
-         THEN 'YES' ELSE '' END                       AS [declared_pk],
-    CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
-                      WHERE i.object_id = t.object_id AND i.is_unique = 1)
-         THEN 'yes' ELSE '' END                       AS [unique_index],
-    -- Vendor tables are built from Horizon's user-defined types. A scratch
-    -- table made by SELECT INTO inherits base types instead.
-    (SELECT COUNT(*) FROM sys.columns c
-     INNER JOIN sys.types ty ON ty.user_type_id = c.user_type_id
-      WHERE c.object_id = t.object_id AND ty.is_user_defined = 1) AS [udt_columns]
-FROM sys.tables t
-WHERE t.is_ms_shipped = 0
-  AND t.create_date &gt; @VendorCutoff
-ORDER BY [udt_columns] DESC, [columns] DESC, t.name;</code></pre>
-  </div>
-</section>
-<section class="step">
-  <div class="step-head">
-    <div class="step-num">5</div>
-    <div class="step-title">
       <h2>1d. Generate the DROP script for review</h2>
     </div>
-    <span class="chip read">Read-only</span>
+    <span class="chip write">Writes</span>
   </div>
   <div class="codewrap">
     <div class="codebar"><span class="codelabel">1d. Generate the DROP script for review</span><button class="copy">Copy</button></div>
-    <pre><code>DECLARE @VendorCutoff datetime = '2026-01-01 00:00:00';
+    <pre><code>DECLARE @VendorCutoff datetime = '2099-01-01 00:00:00';   -- from 1a
+
+-- Tables to keep despite matching the predicate. Reason travels with the name.
+DECLARE @Keep TABLE (name sysname PRIMARY KEY, reason nvarchar(200));
+INSERT INTO @Keep VALUES
+ ('item_circ_renewal', 'Horizon: circ renewal history, declared PK, 15 UDT cols'),
+ ('bstat_group',       'Horizon: lookup, one of 19 sibling *_group tables'),
+ ('sort_order',        'Horizon: character-equivalence data for browse indexes');
 
 SELECT
     'IF OBJECT_ID(''dbo.' + t.name + ''',''U'') IS NOT NULL' +
@@ -252,34 +238,40 @@ LEFT JOIN sys.partitions p
        ON p.object_id = t.object_id AND p.index_id IN (0,1)
 WHERE t.is_ms_shipped = 0
   AND t.create_date &gt; @VendorCutoff
-  -- Exclude anything step 1c flagged as depended upon:
   AND NOT EXISTS (SELECT 1 FROM sys.sql_expression_dependencies d
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
+  AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name)
 GROUP BY t.name
 ORDER BY t.name;</code></pre>
   </div>
 </section>
 <section class="step">
   <div class="step-head">
-    <div class="step-num">6</div>
+    <div class="step-num">5</div>
     <div class="step-title">
-      <h2>2a. Count-gated (use this when you approved the whole 1d list)</h2>
+      <h2>2a. Count-gated — when you approved the whole 1d list</h2>
     </div>
     <span class="chip write">Writes</span>
   </div>
   <div class="codewrap">
-    <div class="codebar"><span class="codelabel">2a. Count-gated (use this when you approved the whole 1d list)</span><button class="copy">Copy</button></div>
+    <div class="codebar"><span class="codelabel">2a. Count-gated — when you approved the whole 1d list</span><button class="copy">Copy</button></div>
     <pre><code>SET NOCOUNT ON;
 SET LOCK_TIMEOUT 10000;      -- fail fast on a lock rather than hanging
 
-DECLARE @VendorCutoff datetime = '2022-04-11 06:45:59';   -- same as step 1
-DECLARE @ExpectedCount int    = 0;                        -- rows you approved
+DECLARE @VendorCutoff datetime = '2099-01-01 00:00:00';   -- same value as 1d
+DECLARE @ExpectedCount int    = 0;                        -- rows 1d returned
+
+DECLARE @Keep TABLE (name sysname PRIMARY KEY, reason nvarchar(200));
+INSERT INTO @Keep VALUES
+ ('item_circ_renewal', 'Horizon: circ renewal history, declared PK, 15 UDT cols'),
+ ('bstat_group',       'Horizon: lookup, one of 19 sibling *_group tables'),
+ ('sort_order',        'Horizon: character-equivalence data for browse indexes');
 
 IF OBJECT_ID('tempdb..#drop_list') IS NOT NULL DROP TABLE #drop_list;
 
--- Identical predicate to 1d. If you change one, change both.
+-- Character-identical to 1d's WHERE clause. If you change one, change both.
 SELECT t.name
 INTO #drop_list
 FROM sys.tables t
@@ -289,9 +281,7 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
-  -- Vendor tables rebuilt after install, so their create_date looks local.
-  -- Identified by step 1e; see the table there for the evidence.
-  AND t.name NOT IN ('item_circ_renewal', 'bstat_group', 'sort_order');
+  AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name);
 
 DECLARE @actual int = (SELECT COUNT(*) FROM #drop_list);
 PRINT 'candidates now: ' + CAST(@actual AS varchar(10))
@@ -336,14 +326,14 @@ SET LOCK_TIMEOUT -1;   -- session-scoped; reset or later queries inherit 10s</co
 </section>
 <section class="step">
   <div class="step-head">
-    <div class="step-num">7</div>
+    <div class="step-num">6</div>
     <div class="step-title">
-      <h2>2b. Explicit list (use this when you removed rows from the 1d output)</h2>
+      <h2>2b. Explicit list — when you kept only some of the 1d output</h2>
     </div>
     <span class="chip write">Writes</span>
   </div>
   <div class="codewrap">
-    <div class="codebar"><span class="codelabel">2b. Explicit list (use this when you removed rows from the 1d output)</span><button class="copy">Copy</button></div>
+    <div class="codebar"><span class="codelabel">2b. Explicit list — when you kept only some of the 1d output</span><button class="copy">Copy</button></div>
     <pre><code>SET LOCK_TIMEOUT 10000;
 
 -- &lt;&lt;&lt; PASTE YOUR EDITED DROP STATEMENTS FROM 1d HERE &gt;&gt;&gt;
@@ -356,24 +346,7 @@ SET LOCK_TIMEOUT -1;</code></pre>
 </section>
 <section class="step">
   <div class="step-head">
-    <div class="step-num">8</div>
-    <div class="step-title">
-      <h2>Verify</h2>
-    </div>
-    <span class="chip read">Read-only</span>
-  </div>
-  <div class="codewrap">
-    <div class="codebar"><span class="codelabel">Verify</span><button class="copy">Copy</button></div>
-    <pre><code>DECLARE @VendorCutoff datetime = '2026-01-01 00:00:00';
-
-SELECT COUNT(*) AS [candidates_remaining]
-FROM sys.tables
-WHERE is_ms_shipped = 0 AND create_date &gt; @VendorCutoff;</code></pre>
-  </div>
-</section>
-<section class="step">
-  <div class="step-head">
-    <div class="step-num">9</div>
+    <div class="step-num">7</div>
     <div class="step-title">
       <h2>Step 3: Re-export the schema</h2>
     </div>
@@ -386,7 +359,7 @@ WHERE is_ms_shipped = 0 AND create_date &gt; @VendorCutoff;</code></pre>
 </section>
 <section class="step">
   <div class="step-head">
-    <div class="step-num">10</div>
+    <div class="step-num">8</div>
     <div class="step-title">
       <h2>Step 3: Re-export the schema</h2>
     </div>
@@ -394,12 +367,13 @@ WHERE is_ms_shipped = 0 AND create_date &gt; @VendorCutoff;</code></pre>
   </div>
   <div class="codewrap">
     <div class="codebar"><span class="codelabel">Step 3: Re-export the schema</span><button class="copy">Copy</button></div>
-    <pre><code>   Select-String -Path "docs\schema\index\all-objects.md" -Pattern '^\*\*\d+ objects'</code></pre>
+    <pre><code>   Select-String -Path *.md, docs\*.md, docs\schema\*.md, horizon-schema\*.md `
+       -Pattern '\d[\d,]* (tables|views|columns|objects)\b|captured 20\d\d-\d\d-\d\d'</code></pre>
   </div>
 </section>
 <section class="step">
   <div class="step-head">
-    <div class="step-num">11</div>
+    <div class="step-num">9</div>
     <div class="step-title">
       <h2>Step 3: Re-export the schema</h2>
     </div>

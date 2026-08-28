@@ -1,4 +1,4 @@
-﻿# Library-SQL-Toolbox
+# Library-SQL-Toolbox
 
 A collection of SQL scripts and data-integrity solutions for Integrated Library
 Systems (ILS) — primarily SirsiDynix Horizon on SQL Server, also Symphony.

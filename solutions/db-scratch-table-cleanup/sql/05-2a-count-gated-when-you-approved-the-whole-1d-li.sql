@@ -1,4 +1,4 @@
-﻿-- 2a. Count-gated (use this when you approved the whole 1d list)
+﻿-- 2a. Count-gated — when you approved the whole 1d list
 -- WRITES - review before running
 --
 -- GENERATED from db-scratch-table-cleanup/README.md by tools/Build-SolutionDocs.ps1.
@@ -8,12 +8,18 @@
 SET NOCOUNT ON;
 SET LOCK_TIMEOUT 10000;      -- fail fast on a lock rather than hanging
 
-DECLARE @VendorCutoff datetime = '2022-04-11 06:45:59';   -- same as step 1
-DECLARE @ExpectedCount int    = 0;                        -- rows you approved
+DECLARE @VendorCutoff datetime = '2099-01-01 00:00:00';   -- same value as 1d
+DECLARE @ExpectedCount int    = 0;                        -- rows 1d returned
+
+DECLARE @Keep TABLE (name sysname PRIMARY KEY, reason nvarchar(200));
+INSERT INTO @Keep VALUES
+ ('item_circ_renewal', 'Horizon: circ renewal history, declared PK, 15 UDT cols'),
+ ('bstat_group',       'Horizon: lookup, one of 19 sibling *_group tables'),
+ ('sort_order',        'Horizon: character-equivalence data for browse indexes');
 
 IF OBJECT_ID('tempdb..#drop_list') IS NOT NULL DROP TABLE #drop_list;
 
--- Identical predicate to 1d. If you change one, change both.
+-- Character-identical to 1d's WHERE clause. If you change one, change both.
 SELECT t.name
 INTO #drop_list
 FROM sys.tables t
@@ -23,9 +29,7 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
-  -- Vendor tables rebuilt after install, so their create_date looks local.
-  -- Identified by step 1e; see the table there for the evidence.
-  AND t.name NOT IN ('item_circ_renewal', 'bstat_group', 'sort_order');
+  AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name);
 
 DECLARE @actual int = (SELECT COUNT(*) FROM #drop_list);
 PRINT 'candidates now: ' + CAST(@actual AS varchar(10))

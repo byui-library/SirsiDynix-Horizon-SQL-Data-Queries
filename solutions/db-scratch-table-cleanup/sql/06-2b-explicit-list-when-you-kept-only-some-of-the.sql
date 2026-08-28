@@ -1,4 +1,4 @@
-﻿-- 2b. Explicit list (use this when you removed rows from the 1d output)
+﻿-- 2b. Explicit list — when you kept only some of the 1d output
 -- WRITES - review before running
 --
 -- GENERATED from db-scratch-table-cleanup/README.md by tools/Build-SolutionDocs.ps1.

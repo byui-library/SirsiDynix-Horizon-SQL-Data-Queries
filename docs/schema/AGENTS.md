@@ -162,7 +162,7 @@ nothing and conclude, wrongly, that the tables are unkeyed. The generated
 
 ## Rule 5 — Dates are integers, not dates
 
-**951 `smallint` date columns across 295 tables** — the most pervasive convention
+**941 `smallint` date columns across 294 tables** — the most pervasive convention
 in the schema. A Horizon date column holds a **day count**, not a SQL `date`.
 Time of day, when kept, lives in a **separate paired `_time` column**
 (`create_date` / `create_time`). Full list:

@@ -179,7 +179,12 @@ if ($lastIdx -ge 0) {
     $new += $lines[0..$lastIdx]
     $new += $line
     if ($lastIdx + 1 -lt $lines.Count) { $new += $lines[($lastIdx + 1)..($lines.Count - 1)] }
-    $new | Out-File -FilePath $rootReadme -Encoding utf8
+    # WriteAllLines with a BOM-less UTF8Encoding, not Out-File -Encoding utf8:
+    # the latter writes a BOM on Windows PowerShell 5.1, so rewriting the
+    # top-level README to add one index line put a spurious ﻿ on line 1 of
+    # the repo's most-read file - and would do it again on every new solution.
+    [System.IO.File]::WriteAllLines(
+        $rootReadme, $new, (New-Object System.Text.UTF8Encoding $false))
     Write-Host "indexed  README.md (after the last solution entry)" -ForegroundColor Green
 } else {
     Write-Warning "Could not find the solution list in README.md - add this line by hand:"

@@ -7,11 +7,13 @@
 
 -- Large counts on one timestamp = a vendor install or upgrade event.
 -- Isolated singles = created by hand.
+-- max_created is the value to paste into @VendorCutoff below: the last moment
+-- of the cluster, at the second precision the later steps compare on.
 SELECT
-    CONVERT(char(16), t.create_date, 120) AS [created_at],
-    COUNT(*)                              AS [tables_created]
+    CONVERT(char(16), t.create_date, 120)      AS [cluster],
+    COUNT(*)                                   AS [tables_created],
+    CONVERT(char(19), MAX(t.create_date), 120) AS [max_created]
 FROM sys.tables t
 WHERE t.is_ms_shipped = 0
 GROUP BY CONVERT(char(16), t.create_date, 120)
-HAVING COUNT(*) > 0
-ORDER BY [created_at];
+ORDER BY [cluster];

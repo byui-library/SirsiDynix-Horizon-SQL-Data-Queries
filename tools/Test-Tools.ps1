@@ -333,16 +333,17 @@ if (-not (Test-Path $denyPath)) {
     #
     # Excluded: docs/superpowers/ only - frozen historical planning records.
     #
-    # horizon-schema/ and docs/schema/index/ WERE excluded, because scratch
-    # tables named after a staff member (del_<user>, kill_bib<user>N) put a
-    # username into the export as DATA, and doctoring the export would have made
-    # it disagree with the database. Those tables were dropped on 2026-08-28 and
-    # the export refreshed, so the blind spot is closed and the guard scans them
-    # again. If a future export reintroduces such a name, fix it at the source -
-    # rename the table - rather than re-adding an exclusion here.
+    # If a real identifier shows up in the schema export, fix it at the SOURCE -
+    # rename the table and re-export - rather than adding an exclusion here. An
+    # exclusion is a permanent blind spot; see docs/SESSION-HANDOFF.md for the
+    # 2026-08-28 case that established this.
     Push-Location $repoRoot
     $tracked = @(& git ls-files 2>$null | Where-Object {
-        $_ -match '\.(md|ps1|sql|html|txt|json|yml|yaml)$' -and
+        # csv included deliberately: horizon-schema/*.csv is the raw export, and
+        # a real identifier appearing there as a table name is exposed exactly
+        # as much as one in prose. Omitting it left the only file that ever
+        # carried such a name unscanned.
+        $_ -match '\.(md|ps1|sql|html|txt|csv|json|yml|yaml)$' -and
         $_ -notmatch '^docs/superpowers/'
     })
     Pop-Location
