@@ -1,0 +1,267 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>049 Tag Cleanup: Resolving Collection Mismatches</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E9EDF1;
+  --ink:#161C23; --ink-2:#48545F; --ink-3:#6F7D89;
+  --rule:#D9E0E6; --rule-2:#C3CDD6;
+  --accent:#175C6E; --accent-soft:#DFEDF1;
+  --safe:#2B6F53; --safe-soft:#E0EFE7;
+  --warn:#8F5602; --warn-soft:#F7EBD8;
+  --code-bg:#EFF3F6; --code-ink:#1B242D;
+  --kw:#175C6E; --str:#8F5602; --com:#77858F; --num:#7A3E8C;
+  --shadow:0 1px 2px rgba(22,28,35,.05), 0 4px 14px rgba(22,28,35,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1419; --surface:#171D24; --surface-2:#1F272F;
+    --ink:#E4EAF0; --ink-2:#A9B6C2; --ink-3:#7C8C99;
+    --rule:#2A343D; --rule-2:#3A464F;
+    --accent:#4FB6CE; --accent-soft:#16323A;
+    --safe:#6BC195; --safe-soft:#152C22;
+    --warn:#D9A046; --warn-soft:#31260F;
+    --code-bg:#121820; --code-ink:#D3DBE3;
+    --kw:#6FCCE1; --str:#D9A046; --com:#6E7C88; --num:#C79BD8;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1419; --surface:#171D24; --surface-2:#1F272F;
+  --ink:#E4EAF0; --ink-2:#A9B6C2; --ink-3:#7C8C99;
+  --rule:#2A343D; --rule-2:#3A464F;
+  --accent:#4FB6CE; --accent-soft:#16323A;
+  --safe:#6BC195; --safe-soft:#152C22;
+  --warn:#D9A046; --warn-soft:#31260F;
+  --code-bg:#121820; --code-ink:#D3DBE3;
+  --kw:#6FCCE1; --str:#D9A046; --com:#6E7C88; --num:#C79BD8;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:62rem;margin:0 auto;padding:2.5rem 1.25rem 5rem;}
+.masthead{display:flex;flex-direction:column;gap:.7rem;padding-bottom:1.4rem;
+  margin-bottom:2rem;border-bottom:2px solid var(--ink);}
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.7rem;
+  font-weight:500;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);}
+h1{margin:0;font-size:clamp(1.6rem,3.6vw,2.3rem);line-height:1.15;font-weight:700;
+  letter-spacing:-.02em;text-wrap:balance;}
+.standfirst{margin:0;max-width:60ch;color:var(--ink-2);font-size:1.0625rem;}
+.gen{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;
+  color:var(--ink-3);}
+.gen code{background:var(--surface-2);padding:.1em .35em;border-radius:3px;}
+.step{background:var(--surface);border:1px solid var(--rule);border-radius:8px;
+  margin-bottom:1.1rem;box-shadow:var(--shadow);overflow:hidden;}
+.step-head{display:flex;align-items:flex-start;gap:.9rem;padding:1rem 1.2rem;}
+.step-num{flex:0 0 auto;width:1.9rem;height:1.9rem;border-radius:5px;display:grid;
+  place-items:center;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.8rem;font-weight:600;background:var(--surface-2);color:var(--ink-2);
+  border:1px solid var(--rule-2);font-variant-numeric:tabular-nums;}
+.step-title{flex:1 1 auto;min-width:0;}
+.step-title h2{margin:0;font-size:1.0625rem;font-weight:600;letter-spacing:-.01em;
+  line-height:1.3;text-wrap:balance;}
+.chip{align-self:flex-start;flex:0 0 auto;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  padding:.28rem .5rem;border-radius:4px;white-space:nowrap;}
+.chip.read{background:var(--safe-soft);color:var(--safe);}
+.chip.write{background:var(--warn-soft);color:var(--warn);}
+.codewrap{position:relative;border-top:1px solid var(--rule);background:var(--code-bg);}
+.codebar{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.45rem .7rem .45rem 1.2rem;border-bottom:1px solid var(--rule);}
+.codelabel{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.65rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
+button.copy{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.7rem;
+  font-weight:600;letter-spacing:.04em;padding:.4rem .7rem;border-radius:5px;
+  cursor:pointer;background:var(--surface);color:var(--accent);
+  border:1px solid var(--rule-2);
+  transition:background .15s ease,border-color .15s ease,color .15s ease;}
+button.copy:hover{background:var(--accent-soft);border-color:var(--accent);}
+button.copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+button.copy.done{background:var(--safe-soft);color:var(--safe);border-color:var(--safe);}
+pre{margin:0;padding:1.05rem 1.2rem;overflow-x:auto;
+  font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.8125rem;line-height:1.65;color:var(--code-ink);tab-size:4;}
+pre code{font:inherit;color:inherit;}
+.tok-kw{color:var(--kw);font-weight:600;}
+.tok-str{color:var(--str);}
+.tok-com{color:var(--com);font-style:italic;}
+.tok-num{color:var(--num);}
+footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);
+  font-size:.8125rem;color:var(--ink-3);}
+footer code{background:var(--surface-2);padding:.1em .35em;border-radius:3px;}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">SirsiDynix Horizon &middot; Runbook</div>
+  <h1>049 Tag Cleanup: Resolving Collection Mismatches</h1>
+  <p class="standfirst">Copy-ready queries extracted from this solution's README.</p>
+  <p class="gen">Generated from <code>049-duplicate-cleanup/README.md</code> &mdash; do not edit this file.</p>
+</header>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">1</div>
+    <div class="step-title">
+      <h2>Step 1: The Audit (Verification)</h2>
+    </div>
+    <span class="chip read">Read-only</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">Step 1: The Audit (Verification)</span><button class="copy">Copy</button></div>
+    <pre><code>SELECT 
+    b.bib# AS [Bib Number],
+    b.tagord AS [Target TagOrd],
+    b.text AS [Current Raw Text],
+    -- Human readable version of the fix:
+    '|a' + missing_code.collection AS [Readable New Value],
+    -- The actual string including MARC control characters:
+    CHAR(31) + 'a' + missing_code.collection + CHAR(30) AS [New Raw Text]
+FROM bib b
+INNER JOIN (
+    -- Isolate Bibs with exactly 2 identical 049 tags
+    SELECT bib#, MAX(tagord) as duplicate_tagord
+    FROM bib
+    WHERE tag = '049'
+    GROUP BY bib#
+    HAVING COUNT(*) = 2 AND MIN(text) = MAX(text)
+) as duplicates 
+    ON b.bib# = duplicates.bib# 
+    AND b.tagord = duplicates.duplicate_tagord
+INNER JOIN (
+    -- Find the collection code present on an item but missing from the 049 tags
+    SELECT DISTINCT i.bib#, i.collection
+    FROM item i
+    WHERE NOT EXISTS (
+        SELECT 1 FROM bib b2 
+        WHERE b2.bib# = i.bib# AND b2.tag = '049' 
+        AND b2.text LIKE '%' + i.collection + '%'
+    )
+) as missing_code 
+    ON b.bib# = missing_code.bib#
+WHERE b.tag = '049'
+ORDER BY b.bib#;</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">2</div>
+    <div class="step-title">
+      <h2>Step 2: The Update</h2>
+    </div>
+    <span class="chip write">Writes</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">Step 2: The Update</span><button class="copy">Copy</button></div>
+    <pre><code>/* Surgical Update:
+Targets the second instance of a duplicate 049 (via MAX tagord)
+and replaces it with the missing collection code found in the item table.
+*/
+
+UPDATE b
+SET b.text = CHAR(31) + 'a' + missing_code.collection + CHAR(30)
+FROM bib b
+INNER JOIN (
+    -- Identify the higher TagOrd of the duplicate pair
+    SELECT bib#, MAX(tagord) as duplicate_tagord
+    FROM bib
+    WHERE tag = '049'
+    GROUP BY bib#
+    HAVING COUNT(*) = 2 AND MIN(text) = MAX(text)
+) as duplicates 
+    ON b.bib# = duplicates.bib# 
+    AND b.tagord = duplicates.duplicate_tagord
+INNER JOIN (
+    -- Identify the specific collection code that lacks a tag
+    SELECT DISTINCT i.bib#, i.collection
+    FROM item i
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM bib b2 
+        WHERE b2.bib# = i.bib# 
+          AND b2.tag = '049' 
+          AND b2.text LIKE '%' + i.collection + '%'
+    )
+) as missing_code 
+    ON b.bib# = missing_code.bib#
+WHERE b.tag = '049';</code></pre>
+  </div>
+</section>
+
+<footer>
+  The solution <code>README.md</code> is the source of truth; this page and the
+  <code>sql/</code> files are generated from it by
+  <code>tools/Build-SolutionDocs.ps1</code>. Read the README for the reasoning,
+  the review gates, and the caveats &mdash; they are not reproduced here.
+  Never enter real logins or passwords into a shared document.
+</footer>
+</div>
+<script>
+(function(){
+  var KW = ["SELECT","FROM","WHERE","AND","OR","NOT","EXISTS","INNER","OUTER","LEFT","RIGHT","JOIN",
+    "ON","GROUP","BY","ORDER","HAVING","INSERT","INTO","VALUES","UPDATE","DELETE","CREATE","TABLE",
+    "DROP","ALTER","COLUMN","CONSTRAINT","PRIMARY","KEY","CLUSTERED","NONCLUSTERED","UNIQUE","INDEX",
+    "GRANT","REVOKE","BEGIN","COMMIT","ROLLBACK","TRANSACTION","AS","IS","NULL","IN","BETWEEN","LIKE",
+    "CASE","WHEN","THEN","ELSE","END","TOP","DISTINCT","CROSS","APPLY","IF","GO","COUNT","SUM","MIN",
+    "MAX","DATEDIFF","DATEADD","DATENAME","CAST","CONVERT","RTRIM","LTRIM","LEN","SUBSTRING",
+    "CHARINDEX","NULLIF","COALESCE","CHAR","OBJECT_ID","SCHEMA_NAME","TYPE_NAME","INT","SMALLINT",
+    "VARCHAR","DESC","ASC","SET","WITH","UNION","ALL","COLLATE","ESCAPE","ROLLUP","OVER"];
+  var re = new RegExp(
+    "(--[^\\n]*)" + "|('(?:''|[^'])*')" + "|(\\b\\d+\\b)" + "|(@@?\\w+)" +
+    "|\\b(" + KW.join("|") + ")\\b", "gi");
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function highlight(src){
+    var out="",last=0,m; re.lastIndex=0;
+    while((m=re.exec(src))!==null){
+      out+=esc(src.slice(last,m.index));
+      if(m[1])      out+='<span class="tok-com">'+esc(m[1])+"</span>";
+      else if(m[2]) out+='<span class="tok-str">'+esc(m[2])+"</span>";
+      else if(m[3]) out+='<span class="tok-num">'+esc(m[3])+"</span>";
+      else if(m[4]) out+='<span class="tok-num">'+esc(m[4])+"</span>";
+      else          out+='<span class="tok-kw">'+esc(m[5])+"</span>";
+      last=m.index+m[0].length;
+    }
+    return out+esc(src.slice(last));
+  }
+  function copyText(text,btn){
+    var done=function(){
+      var old=btn.getAttribute("data-label");
+      btn.textContent="Copied"; btn.classList.add("done");
+      setTimeout(function(){btn.textContent=old;btn.classList.remove("done");},1600);
+    };
+    var fallback=function(){
+      var ta=document.createElement("textarea");
+      ta.value=text; ta.setAttribute("readonly","");
+      ta.style.position="fixed"; ta.style.top="-1000px";
+      document.body.appendChild(ta); ta.select();
+      try{document.execCommand("copy");done();}
+      catch(e){btn.textContent="Press Ctrl+C";}
+      document.body.removeChild(ta);
+    };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done,fallback);
+    } else { fallback(); }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".codewrap"),function(wrap){
+    var code=wrap.querySelector("code"), btn=wrap.querySelector("button.copy");
+    if(!code||!btn) return;
+    var raw=code.textContent;
+    code.innerHTML=highlight(raw);
+    btn.setAttribute("data-label",btn.textContent);
+    btn.addEventListener("click",function(){copyText(raw,btn);});
+  });
+})();
+</script>
+</body>
+</html>

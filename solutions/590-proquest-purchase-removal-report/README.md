@@ -346,36 +346,40 @@ Notes:
   cleans up the `bib` / `item` / index dependencies (see "This report does not
   delete anything" above).
 
-### Running the batch delete (Horizon `killbib`)
-Point Horizon's `killbib` command-line utility at the table with the `/t` flag.
-It reads the bib#s from `dbo.ProQuest_Purchase_DeleteList` and deletes each bib
-with its items and index dependencies.
+### Running the batch delete (Horizon `KillBib`)
 
+Point Horizon's `KillBib` utility at the table with the `/t` flag. It reads the
+bib#s from `dbo.ProQuest_Purchase_DeleteList` and deletes each bib with its items
+and index dependencies.
+
+> **Read [`docs/killbib.md`](../../docs/killbib.md) before running it.** That page
+> is the single source of truth for the utility: the verified `/?` output, every
+> flag, and the five undocumented behaviours that will otherwise cost you an
+> afternoon — the 31-character `/t` limit, the absence of any dry-run, the
+> working-directory requirement, `/r` and `/l` being required, and how
+> `FK_stat_data_*` failures present.
+
+**Do not run it by hand if you can avoid it.** The wrapper handles discovery,
+pre-flight, confirmation and post-verification:
+
+```powershell
+& "C:\path\to\repo\tools\Invoke-DeleteListRun.ps1" -Table ProQuest_Purchase_DeleteList -CreateUser <user> -CreateDate <yyyy-MM-dd> -ExpectedRows <count> -StaffPrincipal <principal> -Brutal
 ```
-killbib /s<server> /u<staff-login> /p<password> /d<database> /t<table> /k /b<start-bib#>
+
+See [`tools/README.md`](../../tools/README.md) for the ten steps, every
+parameter, and the `-WhatIfOnly` rehearsal that runs the read-only checks and
+stops.
+
+The manual equivalent, for reference:
+
+```text
+KillBib.exe /s<server> /d<database> /u<login> /p<password> /r<horizon-id> /l<location> /tProQuest_Purchase_DeleteList /k
 ```
 
-Worked example (credentials shown as placeholders — **do not commit real
-logins/passwords**; this repo is public):
+Run it from `C:\Program Files (x86)\SirsiDynix\Horizon_2` — it dies silently from
+anywhere else. Never commit real logins or passwords; this repository is public.
 
-```
-killbib /shorizondb /u<staff-login> /p<password> /dhorizon /tProQuest_Purchase_DeleteList /k /b5384391
-```
-
-| flag | meaning |
-| --- | --- |
-| `/s` | SQL Server instance (e.g. `horizondb`) |
-| `/u` | database staff login |
-| `/p` | password for that login |
-| `/d` | database name (`horizon`) |
-| `/t` | table holding the bib# list to delete (`ProQuest_Purchase_DeleteList`) |
-| `/k` | run in delete ("kill") mode |
-| `/b` | begin at this bib# — used to **resume** a run partway through (here, restart at `5384391` after the first record) |
-
-Confirm exact flag behaviour against `killbib`'s own help; `/k` and `/b` are
-documented here from observed use.
-
-**If `killbib` stops with** `FK_stat_data_location` (or a similar
+**If it stops with** `FK_stat_data_location` (or a similar
 `FK_stat_data_*`) foreign-key error: a Horizon item on that bib carries a
 `location` (or `collection`/`itype`) code that is missing from its parent table,
 so `killbib`'s statistics insert fails and the delete rolls back. This is a

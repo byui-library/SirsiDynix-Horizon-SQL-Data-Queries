@@ -9,6 +9,17 @@ excel reports/
 *.xls
 *.csv
 
+# EXCEPTION: the Horizon schema exports are database *metadata* — object names,
+# data types, collations, index and FK definitions. They contain no catalog
+# records, no patron data, and no credentials, so the privacy reason for the
+# blanket *.csv rule above does not apply to them. They are the source of truth
+# behind docs/schema/ and must travel with the repo.
+!horizon-schema/*.csv
+
 # Common local/OS cruft
 Thumbs.db
 .DS_Store
+
+# Local-only denylist of real identifiers for the redaction guard.
+# Must never be committed - it exists so the real values stay OUT of the repo.
+tools/.redaction-denylist.txt
