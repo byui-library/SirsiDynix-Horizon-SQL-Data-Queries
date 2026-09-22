@@ -60,6 +60,7 @@ schema reason it is hard, and the step-by-step implementation.
 * **[590-proquest-purchase-removal-report](./solutions/590-proquest-purchase-removal-report)** — read-only `bib#` list of EBK records carrying both a ProQuest and a purchase `590` note, for handoff to Horizon's batch delete ahead of a fresh ProQuest ingest.
 * **[590-proquest-new-by-creator-report](./solutions/590-proquest-new-by-creator-report)** — read-only report of bib records created by a given operator on a given day whose `590` notes mention ProQuest, plus the end-to-end delete-list build.
 * **[db-scratch-table-cleanup](./solutions/db-scratch-table-cleanup)**: Identifies local scratch/backup tables that Horizon did not ship, checks nothing depends on them, and generates a reviewed DROP list.
+* **[pref-setting-user-profile-test](./solutions/pref-setting-user-profile-test)**: Copies one operator's pref_setting rows to a test login to isolate a corrupted Horizon user profile.
 
 ### Generated alongside each README
 
