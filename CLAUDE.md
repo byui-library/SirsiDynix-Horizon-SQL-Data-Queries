@@ -52,6 +52,31 @@ block someone will paste.
 value appears in a tracked file. Add a value to that denylist the moment you
 learn it.
 
+**Never use a real identifier as an illustrative example**, not even in a code
+comment or a sentence saying it appears nowhere. The guard has caught exactly
+that twice. Use the placeholders above.
+
+### Denylist entry forms
+
+| Line | Matched |
+| --- | --- |
+| `SOMEVALUE` | **anywhere** in a tracked file — the default, and the safest |
+| `word:SOMEVALUE` | only where it stands as its **own token** |
+
+`word:` exists for short values that legitimately occur inside unrelated longer
+identifiers — a four-character site abbreviation baked into application table
+names that other systems reference, where renaming the table is not an option.
+Underscore, dash, dot, quote and whitespace all count as boundaries, so
+`<login>_test` and `dbo.<login>` still match.
+
+**`word:` is a narrowing, not an exclusion.** The value is still scanned for
+across every tracked file; it merely has to appear standalone. Never exclude a
+file — that is a permanent blind spot. And never doctor the schema export: a
+doctored export silently disagrees with the database, which is the exact class
+of error this repository guards against. Fix a real leak at the source by
+renaming the object and re-exporting; use `word:` only when the source genuinely
+cannot change.
+
 Bib numbers are kept — they are public catalogue identifiers and they make
 findings reproducible. Patron data is never committed; `.gitignore` blocks
 `*.csv`/`*.xlsx` for that reason, with a narrow exception only for

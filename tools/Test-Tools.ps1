@@ -315,6 +315,69 @@ $missing  = @($sqlFiles | Where-Object {
 Assert-Equal 0 $missing.Count "all $($sqlFiles.Count) generated .sql files carry the GENERATED header"
 
 # ---------------------------------------------------------------------------
+function ConvertTo-RedactionPattern {
+    <#
+    .SYNOPSIS
+        Turns one denylist line into the regex the guard matches with.
+    .DESCRIPTION
+        Plain entry      matched ANYWHERE in the file. The default, and the
+                         safest: it catches a value however it is embedded.
+
+        'word:<value>'   matched only where the value stands as its own token -
+                         i.e. not butted up against another letter or digit.
+
+        The 'word:' form exists for SHORT values that legitimately occur inside
+        unrelated longer identifiers. A four-character site abbreviation buried
+        in a vendor table name like fixXXXXProxy is not a leak, but a plain
+        entry fires on it every run, and a guard that cries wolf gets switched
+        off - which is the real risk.
+
+        This is a NARROWING, not an exclusion. The value is still scanned for
+        across every tracked file; it simply has to appear as a standalone
+        token. A login, server name or location code written into prose, a
+        path, or a quoted string is still caught. Compare an exclusion, which
+        drops a whole FILE and is a permanent blind spot.
+
+        Underscore, dash, dot and whitespace all count as boundaries, so for an
+        entry 'word:acct', both acct_test and dbo.acct still match.
+    #>
+    param([Parameter(Mandatory=$true)] [string] $Entry)
+
+    if ($Entry -match '^\s*word:\s*(.+?)\s*$') {
+        # Lookaround on alphanumerics only - \b treats '_' as a word character,
+        # so it would MISS <login>_test, which is exactly the shape a scratch
+        # table named after a staff member takes.
+        return '(?<![A-Za-z0-9])' + [regex]::Escape($Matches[1]) + '(?![A-Za-z0-9])'
+    }
+    return [regex]::Escape($Entry.Trim())
+}
+
+# ---------------------------------------------------------------------------
+Group 'Redaction pattern matching'
+
+$plain = ConvertTo-RedactionPattern 'abcd'
+$token = ConvertTo-RedactionPattern 'word:abcd'
+
+Assert-True ('fixabcdProxy' -match $plain)  'plain entry matches inside a longer identifier'
+Assert-True ('abcd'         -match $plain)  'plain entry matches standalone'
+
+Assert-True ('fixabcdProxy' -notmatch $token) 'word: entry does NOT match inside a longer identifier'
+Assert-True ('abcd'         -match    $token) 'word: entry still matches standalone'
+Assert-True ('abcd_test'    -match    $token) 'word: entry still matches before an underscore'
+Assert-True ('dbo.abcd'     -match    $token) 'word: entry still matches after a dot'
+Assert-True ('run abcd now' -match    $token) 'word: entry still matches between spaces'
+Assert-True ("server='abcd'" -match   $token) 'word: entry still matches inside quotes'
+Assert-True ('ABCD'         -match    $token) 'word: entry is still case-insensitive'
+Assert-True ('abcde'        -notmatch $token) 'word: entry does not match a longer word starting with it'
+Assert-True ('xabcd'        -notmatch $token) 'word: entry does not match a longer word ending with it'
+# The prefix must not survive into the compiled pattern, or the guard would
+# hunt for the literal text 'word:...' and never find the value at all.
+# Asserted against the PATTERN, not a sample string: 'word:abcd' as a string
+# legitimately contains a standalone abcd token and so SHOULD match.
+Assert-True ($token -notmatch 'word')       'word: prefix is stripped from the compiled pattern'
+Assert-True ($token -match 'abcd')          'the value survives into the compiled pattern'
+
+# ---------------------------------------------------------------------------
 Group 'Redaction guard - no real site identifiers in tracked files'
 
 # The denylist holds the real values and is GITIGNORED, so the secrets never
@@ -329,6 +392,13 @@ if (-not (Test-Path $denyPath)) {
               Where-Object { $_ -and -not $_.StartsWith('#') })
     Assert-True ($deny.Count -gt 0) "denylist has $($deny.Count) entries"
 
+    # Compile once, not once per file - this loop is entries x tracked files.
+    $denyPatterns = @($deny | ForEach-Object { ConvertTo-RedactionPattern $_ })
+    $narrowed = @($deny | Where-Object { $_ -match '^\s*word:' }).Count
+    if ($narrowed -gt 0) {
+        Write-Host "          $narrowed entr$(if ($narrowed -eq 1) { 'y is' } else { 'ies are' }) token-scoped (word:)" -ForegroundColor DarkGray
+    }
+
     # Only files git actually tracks - untracked scratch is not published.
     #
     # Excluded: docs/superpowers/ only - frozen historical planning records.
@@ -337,6 +407,12 @@ if (-not (Test-Path $denyPath)) {
     # rename the table and re-export - rather than adding an exclusion here. An
     # exclusion is a permanent blind spot; see docs/SESSION-HANDOFF.md for the
     # 2026-08-28 case that established this.
+    #
+    # The one case where the source CANNOT be fixed: a short site abbreviation
+    # baked into vendor/application table names that other systems reference,
+    # so renaming them is not on the table. Mark that entry 'word:' in the
+    # denylist - it stays scanned everywhere, but only as a standalone token.
+    # That is a narrowing, not an exclusion; no file stops being checked.
     Push-Location $repoRoot
     $tracked = @(& git ls-files 2>$null | Where-Object {
         # csv included deliberately: horizon-schema/*.csv is the raw export, and
@@ -355,8 +431,8 @@ if (-not (Test-Path $denyPath)) {
         if (-not (Test-Path $full)) { continue }
         $text = Get-Content $full -Raw -ErrorAction SilentlyContinue
         if (-not $text) { continue }
-        foreach ($bad in $deny) {
-            if ($text -match [regex]::Escape($bad)) { $hits += "$rel contains a denylisted value" }
+        foreach ($pattern in $denyPatterns) {
+            if ($text -match $pattern) { $hits += "$rel contains a denylisted value" }
         }
     }
     # Report the file, never the value - echoing it would defeat the purpose.

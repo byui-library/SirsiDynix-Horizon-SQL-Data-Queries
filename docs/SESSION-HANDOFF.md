@@ -1,53 +1,62 @@
-# Session handoff — 2026-09-22
+# Session handoff — 2026-09-23
 
 State of play. Read this first; it says what is finished, what is genuinely
 unresolved, and what to do next.
 
 ---
 
-## 0. Start here — one blocking issue
-
-**`tools\Test-Tools.ps1` currently fails: 63 passed, 1 FAILED.** The failure is
-the redaction guard, and it needs a decision before the next commit, because
-this repository is public.
+## 0. Nothing is blocking — the suite is green
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\Test-Tools.ps1
 ```
 
-**What it is flagging.** Denylist **entry #7** — a 4-character value — appears
-inside two local table names, which the generated index pages and the raw schema
-export therefore carry:
+**77 passed, 0 failed.** Run it before every commit; it is the redaction guard,
+and this repository is public.
 
-```text
-fix####Proxy        (12 chars)
-fix####Redirect     (15 chars)
-```
+**Next action: §1 — the `pref_setting` test.** It is written and committed but
+has never touched the database, and it is blocked on a step outside SQL: the
+throwaway Horizon login has to be created in the staff client first.
 
-It matches as a **substring only, never as a standalone token**. Affected files:
-`horizon-schema/all_tables_all_views.csv`, `horizon-schema/indexes_and_keys.csv`,
-`docs/schema/index/all-objects.md`, `docs/schema/index/no-unique-index.md`.
+### What was resolved — token-scoped denylist entries
 
-**This is pre-existing and was not introduced by the last session's work.** All
-four files are unchanged from `HEAD` and their content is already public. The
-denylist grew from 5 entries to 7 between sessions, and entry #7 is what newly
-trips the guard.
+The guard used to fail on denylist **entry #7**, a 4-character value appearing
+inside two application table names (`fix####Proxy`, `fix####Redirect`) that the
+schema export and generated index pages carry. It matched as a **substring
+only, never as a standalone token**.
 
-**The decision — one of two, and it is yours:**
+Renaming those tables was not an option — other systems reference them — and the
+two obvious remedies were both wrong:
 
-| If entry #7 is… | Do this |
+- **Deleting the entry** would drop all protection for that value, including if
+  it later leaked standalone as a login or location code.
+- **Excluding the files** would create a permanent blind spot, and doctoring the
+  export is worse still: it silently disagrees with the database, which is the
+  error class this repo exists to prevent.
+
+So the guard gained a third, narrower form. A denylist line may now be written
+`word:<value>`, which is matched only where the value stands as its **own
+token**:
+
+| Line | Matched |
 | --- | --- |
-| **Not actually sensitive** (an institution abbreviation is already public — the GitHub org name and `LICENSE` both carry it) | Remove it from `tools/.redaction-denylist.txt`. Over-broad short entries cause false positives exactly like this. |
-| **Genuinely sensitive** | **Rename the two `fix*` tables** in the database and re-export. Do **not** add an exclusion to the guard and do **not** edit the export — a doctored export silently disagrees with the database, which is the error class this repo exists to prevent. |
+| `SOMEVALUE` | **anywhere** — the default, and the safest |
+| `word:SOMEVALUE` | only as a **standalone token** |
 
-Judgement: the first looks right. A 4-character value embedded in two local
-utility table names, matching nothing as a whole token, reads as an over-broad
-denylist entry rather than a leak. But weakening a redaction rule on a public
-repo is not a call to make unilaterally.
+Entry #7 is now `word:`-scoped. Verified still caught standalone in every shape
+that matters — `server is <v>`, `login='<v>'`, `dbo.<v>`, `<v>_backup`,
+`path\<v>\file`, `-Location <v>` — and correctly not flagged inside
+`fix<v>Proxy`. The other six entries are unchanged and still match anywhere.
 
-**The affected operator's login is on the denylist and appears in no tracked
-file** — verified. The new solution uses the `CATALOGER` placeholder throughout,
-per the table in [`CLAUDE.md`](../CLAUDE.md#never-publish-real-site-identifiers).
+**This is a narrowing, not an exclusion.** No file stopped being scanned. 13
+tests cover the matcher; see `ConvertTo-RedactionPattern` in
+[`tools/Test-Tools.ps1`](../tools/Test-Tools.ps1) and the entry-form table in
+[`CLAUDE.md`](../CLAUDE.md#denylist-entry-forms).
+
+> **Never use a real identifier as an illustrative example**, including in a code
+> comment or in a sentence asserting it appears nowhere. The guard caught exactly
+> that twice while this was being written — once in this handoff, once in a
+> docstring in the guard's own source. Use the placeholders.
 
 ---
 
