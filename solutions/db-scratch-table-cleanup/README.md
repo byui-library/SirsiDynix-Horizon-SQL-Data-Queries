@@ -45,6 +45,50 @@ None was caught by the dependency check, because **a standalone lookup table has
 nothing referencing it**. Step 1b therefore reports structural signals beside
 each candidate so the evidence sits on the same line as the decision.
 
+### The second discriminator: scratch has no moving parts
+
+Creation date and structure both separate *vendor* from *local*. Neither
+separates a local **customisation** from local **scratch** — and that is the
+distinction that gets a live table dropped.
+
+A customisation is deployed: a table plus the triggers or procedures that drive
+it, created together within seconds of one another. Scratch is a `SELECT INTO`
+somebody ran once and forgot. Both are local, both are recent, and on every
+signal above they look identical.
+
+Two further signals tell them apart, and 1b reports both:
+
+| Signal | What it means |
+| --- | --- |
+| **Triggers on the table** | Scratch does not have triggers. A table carrying DML triggers is somebody's deployed customisation. |
+| **Objects created in the same second** | A deployment arrives with satellites. Hand-made scratch arrives alone. |
+
+The trigger signal matters most, because **1c cannot see it**.
+`sys.sql_expression_dependencies` records what a module *references*, not what a
+trigger is *attached to*, and a trigger whose body touches only `inserted` and
+`deleted` produces no dependency row pointing at its own parent table. So a
+customisation with triggers reads as an unreferenced orphan.
+
+`DROP TABLE` then compounds it: a table's triggers are dropped with it, in the
+same statement. The customisation and every trace of why it existed disappear
+together.
+
+1d therefore **excludes any table carrying triggers outright**, rather than
+merely reporting it.
+
+**How this was learned here.** The 2026-08-28 run dropped `borrLegal_KW` and its
+three DML triggers — `borrLegal_KW_i_trig`, `_u_trig`, `_d_trig` — a local
+customisation deployed 2023-07-26, all four objects created within six seconds
+of each other. It passed every check: local `create_date`, base types, no
+declared PK, and nothing referencing it. On 2026-08-31 cataloguers could no
+longer edit borrower records, failing with `Invalid object name`. The table and
+triggers were recovered by scripting them out of the training database, which
+predated the drop. Nothing in production explained the failure, because the
+triggers had gone down with the table.
+
+The training database was the only reason this was recoverable. **Do not run
+Step 2 against production unless a copy that predates it exists somewhere.**
+
 ### A backup is required before Step 2
 
 `DROP TABLE` is not recoverable. Take a **full database backup** — not just
@@ -112,7 +156,19 @@ SELECT
          THEN 'YES' ELSE '' END              AS [declared_pk],
     CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
                       WHERE i.object_id = t.object_id AND i.is_unique = 1)
-         THEN 'yes' ELSE '' END              AS [unique_idx]
+         THEN 'yes' ELSE '' END              AS [unique_idx],
+    -- Scratch does not have triggers. Any count above 0 is a deployed
+    -- customisation. 1c cannot detect this: a trigger's parent is not
+    -- recorded as a dependency, and DROP TABLE takes the triggers with it.
+    (SELECT COUNT(*) FROM sys.triggers tr
+      WHERE tr.parent_id = t.object_id)      AS [triggers],
+    -- Objects created within ten seconds of this one. A deployment arrives
+    -- with satellites; hand-made scratch arrives alone.
+    (SELECT COUNT(*) FROM sys.objects co
+      WHERE co.is_ms_shipped = 0
+        AND co.object_id <> t.object_id
+        AND ABS(DATEDIFF(second, co.create_date, t.create_date)) <= 10)
+                                             AS [co_created]
 FROM sys.tables t
 LEFT JOIN sys.partitions p
        ON p.object_id = t.object_id AND p.index_id IN (0,1)
@@ -127,6 +183,11 @@ INTO` scratch copy is typically 1–3 columns of base types, no key, `udt_cols` 
 0. **Anything with user-defined-type columns, a declared PK, or more than a
 handful of columns is vendor until you prove otherwise.**
 
+**`triggers` above 0 ends the discussion** — that table is a deployed
+customisation and does not belong on a drop list, whatever its name or age.
+A non-zero `co_created` says the same thing more weakly: the table arrived as
+part of a batch, so find out what the rest of that batch was before judging it.
+
 The exception that proves the rule: this repository's own delete lists carry a
 declared PK and are still safe to drop. Structure is evidence, not a verdict —
 only a table whose history you recognise should be dropped despite these signals.
@@ -137,6 +198,11 @@ only a table whose history you recognise should be dropped despite these signals
 
 A table referenced by a view, procedure, or foreign key is not scratch, whatever
 its name suggests. **This check is necessary but not sufficient** — see 1b.
+
+It has one blind spot you cannot close from here: **a table's own triggers do
+not appear as dependencies on it.** A customisation consisting of a table and
+the triggers that maintain it will return nothing at all from both queries
+below. That is why 1b reports a trigger count and 1d excludes on it.
 
 ```sql
 DECLARE @VendorCutoff datetime = '2099-01-01 00:00:00';   -- from 1a
@@ -199,6 +265,11 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
+  -- A table with DML triggers is a deployed customisation, not scratch.
+  -- Nothing above catches it: a trigger's parent is not a dependency, and
+  -- DROP TABLE removes the triggers along with the table.
+  AND NOT EXISTS (SELECT 1 FROM sys.triggers tr
+                  WHERE tr.parent_id = t.object_id)
   AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name)
 GROUP BY t.name
 ORDER BY t.name;
@@ -247,6 +318,11 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
+  -- A table with DML triggers is a deployed customisation, not scratch.
+  -- Nothing above catches it: a trigger's parent is not a dependency, and
+  -- DROP TABLE removes the triggers along with the table.
+  AND NOT EXISTS (SELECT 1 FROM sys.triggers tr
+                  WHERE tr.parent_id = t.object_id)
   AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name);
 
 DECLARE @actual int = (SELECT COUNT(*) FROM #drop_list);

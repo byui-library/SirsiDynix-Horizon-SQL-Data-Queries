@@ -111,7 +111,12 @@ function Test-IsWrite {
     # Strip comments and string literals so keywords inside them do not count.
     $bare = $Code -replace '(?m)--[^\n]*', ' ' -replace "'(?:''|[^'])*'", " '' "
 
-    if ($bare -match '(?im)\b(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|GRANT|REVOKE|TRUNCATE|MERGE|EXEC|EXECUTE|BACKUP|RESTORE|DENY|SET\s+LOCK_TIMEOUT)\b') { return $true }
+    # ENABLE/DISABLE: re-enabling a trigger changes behaviour on the next write
+    # and is not reversible by re-reading anything. It shares no keyword with
+    # the list above, so without it an ENABLE TRIGGER block was labelled
+    # read-only - a false negative in a classifier whose whole contract is to
+    # fail CLOSED.
+    if ($bare -match '(?im)\b(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|GRANT|REVOKE|TRUNCATE|MERGE|EXEC|EXECUTE|BACKUP|RESTORE|DENY|ENABLE|DISABLE|SET\s+LOCK_TIMEOUT)\b') { return $true }
     if ($bare -match '(?is)\bSELECT\b.*\bINTO\b\s+[\[\w#]') { return $true }   # SELECT ... INTO
     if ($bare -match '(?im)^\s*;?\s*WITH\b')                    { return $true }   # CTE may front an UPDATE
     return $false

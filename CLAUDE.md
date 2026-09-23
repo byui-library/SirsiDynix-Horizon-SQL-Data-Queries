@@ -37,7 +37,8 @@ pasted into PowerShell without breaking (`<` is a reserved redirection operator)
 | Real thing | Placeholder |
 | --- | --- |
 | SQL Server instance | `ILSSERVER` |
-| Database | `ILSDB` |
+| Database (production) | `ILSDB` |
+| Database (training/test copy) | `ILSTRAINDB` |
 | SQL login (`/u`) | `ils_svc` |
 | Horizon User ID (`/r`) | `HZUSER` |
 | Location code (`/l`) | `LOC` |

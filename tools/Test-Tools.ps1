@@ -110,6 +110,11 @@ Assert-Equal $true  (Test-IsWrite -Code 'GRANT SELECT ON dbo.x TO y;')          
 Assert-Equal $true  (Test-IsWrite -Code 'MERGE t USING s ON 1=1 WHEN MATCHED THEN DELETE;') 'MERGE is a write'
 Assert-Equal $true  (Test-IsWrite -Code 'SELECT a INTO dbo.NewTable FROM b;')               'SELECT ... INTO is a write'
 Assert-Equal $true  (Test-IsWrite -Code 'EXEC sp_rename ''a'', ''b'';')                     'EXEC is a write'
+# ENABLE/DISABLE share no keyword with the rest of the list, so an
+# ENABLE TRIGGER block was previously labelled read-only in a generated
+# runbook - the one failure mode this classifier is supposed to not have.
+Assert-Equal $true  (Test-IsWrite -Code 'ENABLE TRIGGER [t] ON [dbo].[x];')                 'ENABLE TRIGGER is a write'
+Assert-Equal $true  (Test-IsWrite -Code 'DISABLE TRIGGER [t] ON [dbo].[x];')                'DISABLE TRIGGER is a write'
 Assert-Equal $true  (Test-IsWrite -Code ';WITH c AS (SELECT 1 x) UPDATE t SET y = 1;')      'CTE fronting an UPDATE is a write'
 
 # ---------------------------------------------------------------------------

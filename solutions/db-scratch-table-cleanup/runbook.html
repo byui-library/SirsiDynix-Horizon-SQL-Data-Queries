@@ -163,7 +163,19 @@ SELECT
          THEN 'YES' ELSE '' END              AS [declared_pk],
     CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
                       WHERE i.object_id = t.object_id AND i.is_unique = 1)
-         THEN 'yes' ELSE '' END              AS [unique_idx]
+         THEN 'yes' ELSE '' END              AS [unique_idx],
+    -- Scratch does not have triggers. Any count above 0 is a deployed
+    -- customisation. 1c cannot detect this: a trigger's parent is not
+    -- recorded as a dependency, and DROP TABLE takes the triggers with it.
+    (SELECT COUNT(*) FROM sys.triggers tr
+      WHERE tr.parent_id = t.object_id)      AS [triggers],
+    -- Objects created within ten seconds of this one. A deployment arrives
+    -- with satellites; hand-made scratch arrives alone.
+    (SELECT COUNT(*) FROM sys.objects co
+      WHERE co.is_ms_shipped = 0
+        AND co.object_id &lt;&gt; t.object_id
+        AND ABS(DATEDIFF(second, co.create_date, t.create_date)) &lt;= 10)
+                                             AS [co_created]
 FROM sys.tables t
 LEFT JOIN sys.partitions p
        ON p.object_id = t.object_id AND p.index_id IN (0,1)
@@ -242,6 +254,11 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
+  -- A table with DML triggers is a deployed customisation, not scratch.
+  -- Nothing above catches it: a trigger's parent is not a dependency, and
+  -- DROP TABLE removes the triggers along with the table.
+  AND NOT EXISTS (SELECT 1 FROM sys.triggers tr
+                  WHERE tr.parent_id = t.object_id)
   AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name)
 GROUP BY t.name
 ORDER BY t.name;</code></pre>
@@ -281,6 +298,11 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
+  -- A table with DML triggers is a deployed customisation, not scratch.
+  -- Nothing above catches it: a trigger's parent is not a dependency, and
+  -- DROP TABLE removes the triggers along with the table.
+  AND NOT EXISTS (SELECT 1 FROM sys.triggers tr
+                  WHERE tr.parent_id = t.object_id)
   AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name);
 
 DECLARE @actual int = (SELECT COUNT(*) FROM #drop_list);

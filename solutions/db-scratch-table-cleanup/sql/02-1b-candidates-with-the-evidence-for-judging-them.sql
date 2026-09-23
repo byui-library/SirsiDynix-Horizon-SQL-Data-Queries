@@ -24,7 +24,19 @@ SELECT
          THEN 'YES' ELSE '' END              AS [declared_pk],
     CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i
                       WHERE i.object_id = t.object_id AND i.is_unique = 1)
-         THEN 'yes' ELSE '' END              AS [unique_idx]
+         THEN 'yes' ELSE '' END              AS [unique_idx],
+    -- Scratch does not have triggers. Any count above 0 is a deployed
+    -- customisation. 1c cannot detect this: a trigger's parent is not
+    -- recorded as a dependency, and DROP TABLE takes the triggers with it.
+    (SELECT COUNT(*) FROM sys.triggers tr
+      WHERE tr.parent_id = t.object_id)      AS [triggers],
+    -- Objects created within ten seconds of this one. A deployment arrives
+    -- with satellites; hand-made scratch arrives alone.
+    (SELECT COUNT(*) FROM sys.objects co
+      WHERE co.is_ms_shipped = 0
+        AND co.object_id <> t.object_id
+        AND ABS(DATEDIFF(second, co.create_date, t.create_date)) <= 10)
+                                             AS [co_created]
 FROM sys.tables t
 LEFT JOIN sys.partitions p
        ON p.object_id = t.object_id AND p.index_id IN (0,1)

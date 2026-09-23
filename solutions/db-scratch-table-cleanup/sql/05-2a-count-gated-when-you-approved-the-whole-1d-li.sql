@@ -29,6 +29,11 @@ WHERE t.is_ms_shipped = 0
                   WHERE d.referenced_entity_name = t.name)
   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys fk
                   WHERE fk.referenced_object_id = t.object_id)
+  -- A table with DML triggers is a deployed customisation, not scratch.
+  -- Nothing above catches it: a trigger's parent is not a dependency, and
+  -- DROP TABLE removes the triggers along with the table.
+  AND NOT EXISTS (SELECT 1 FROM sys.triggers tr
+                  WHERE tr.parent_id = t.object_id)
   AND NOT EXISTS (SELECT 1 FROM @Keep k WHERE k.name = t.name);
 
 DECLARE @actual int = (SELECT COUNT(*) FROM #drop_list);
