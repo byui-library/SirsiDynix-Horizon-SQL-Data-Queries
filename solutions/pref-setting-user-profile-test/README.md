@@ -269,7 +269,296 @@ loaded anything.
 
 ---
 
-## Step 4: Clean up
+## Step 4: Identify which rows differ
+
+### What actually happened — read this before trusting the diff
+
+The test did not run as Step 2 designed it. Rather than copying the operator's
+preferences onto the test login, **a brand-new profile was created and the
+import ran cleanly under it.** Pointing KillBib's `/r` at the new login also
+cleared a separate hang.
+
+That is a *better* outcome for the user and a *worse* one for the diff, and the
+reason is worth being explicit about:
+
+| If the test login had… | A diff against it would show |
+| --- | --- |
+| a **copy** of the operator's rows (Step 2) | only what changed since — a short list, probably one row |
+| a **fresh default** profile (what happened) | **every preference the operator ever customised** |
+
+So the comparison below does **not** isolate the corrupted row. It returns the
+operator's entire deviation from default — window positions, saved searches,
+default locations, all of it — with the fault somewhere inside. Narrowing is
+Step 4c's job, not the diff's.
+
+Do not send the raw diff on as "the rows that differ". It is the candidate set.
+
+### 4a. Are the two accounts comparable?
+
+```sql
+-- Read-only. Every column looked up in horizon-schema/, not inferred.
+SELECT u.user_id,
+       u.user_name,
+       u.[pref_group#],
+       u.save_preferences,
+       u.user_disabled
+FROM user_id u
+WHERE u.user_id IN ('CATALOGER', 'CATALOGER_T')
+ORDER BY u.user_id;
+```
+
+### 4b. Which preference groups do their rows actually sit in?
+
+**Run this before the diff.** `pref_group#` is part of the grain, so if the two
+accounts' rows sit in different groups, every row joins to nothing and the diff
+reports *everything* as one-sided — which reads exactly like total corruption
+and means nothing of the sort.
+
+```sql
+-- Read-only.
+SELECT ps.user_id,
+       ps.[pref_group#],
+       COUNT(*) AS [rows]
+FROM pref_setting ps
+WHERE ps.user_id IN ('CATALOGER', 'CATALOGER_T')
+GROUP BY ps.user_id, ps.[pref_group#]
+ORDER BY ps.user_id, ps.[pref_group#];
+```
+
+If the group numbers match, the diff is meaningful. If they do not, stop and say
+so rather than reporting the output as differences.
+
+### 4c. The diff
+
+Three details in the schema shape this query, and all three can hide the thing
+you are hunting:
+
+1. **`pref_group#` is nullable.** A plain `=` join silently drops rows where it
+   is `NULL`, because `NULL = NULL` is not true. The join below handles that
+   explicitly.
+2. **`pref_data` is `varchar` under a `CI` collation**, so `=` ignores case
+   *and* trailing spaces. For a *corrupted* value, either could be the entire
+   difference — so the comparison uses `Latin1_General_BIN` and checks
+   `DATALENGTH` as well.
+3. **`pref_data` is nullable**, and a `<>` against `NULL` yields `NULL`, never
+   true. The `NULL`-vs-value cases are therefore tested separately.
+
+```sql
+-- Read-only. Shows rows present on one side only, and rows whose value differs.
+SELECT
+    COALESCE(a.pref_category, b.pref_category) AS [pref_category],
+    COALESCE(a.[pref_group#], b.[pref_group#]) AS [pref_group#],
+    COALESCE(a.pref_id, b.pref_id)             AS [pref_id],
+    CASE WHEN a.user_id IS NULL THEN 'only on the test login'
+         WHEN b.user_id IS NULL THEN 'only on the real account'
+         ELSE 'value differs' END              AS [difference],
+    a.pref_data                                AS [real_value],
+    b.pref_data                                AS [test_value],
+    DATALENGTH(a.pref_data)                    AS [real_bytes],
+    DATALENGTH(b.pref_data)                    AS [test_bytes]
+FROM      (SELECT pref_category, [pref_group#], user_id, pref_id, pref_data
+           FROM pref_setting WHERE user_id = 'CATALOGER')   a
+FULL OUTER JOIN
+          (SELECT pref_category, [pref_group#], user_id, pref_id, pref_data
+           FROM pref_setting WHERE user_id = 'CATALOGER_T') b
+       ON  b.pref_category = a.pref_category
+       AND b.pref_id       = a.pref_id
+       AND (b.[pref_group#] = a.[pref_group#]
+            OR (b.[pref_group#] IS NULL AND a.[pref_group#] IS NULL))
+WHERE a.user_id IS NULL
+   OR b.user_id IS NULL
+   OR (a.pref_data IS     NULL AND b.pref_data IS NOT NULL)
+   OR (a.pref_data IS NOT NULL AND b.pref_data IS     NULL)
+   OR a.pref_data COLLATE Latin1_General_BIN
+   <> b.pref_data COLLATE Latin1_General_BIN
+   OR DATALENGTH(a.pref_data) <> DATALENGTH(b.pref_data)
+ORDER BY [pref_category], [pref_group#], [pref_id];
+```
+
+`FULL OUTER JOIN` rather than a one-sided join because all three cases matter: a
+row the real account has and the test login does not, a row only the test login
+has, and a row both have with different data.
+
+### 4d. Hunt the corruption directly
+
+More likely to find it than the diff, because it does not care what the test
+login holds. A value described as *corrupted* often looks structurally wrong,
+and these three shapes are what that looks like in a `varchar(255)`:
+
+```sql
+-- Read-only. Structurally suspicious preference values on the real account.
+SELECT
+    ps.pref_category,
+    ps.[pref_group#],
+    ps.pref_id,
+    ps.pref_data,
+    DATALENGTH(ps.pref_data) AS [bytes],
+    CASE
+        WHEN ps.pref_data COLLATE Latin1_General_BIN LIKE '%[^ -~]%'
+             THEN 'contains control or high-byte characters'
+        WHEN DATALENGTH(ps.pref_data) = 255
+             THEN 'exactly 255 bytes - possibly truncated'
+        WHEN DATALENGTH(ps.pref_data)
+          <> DATALENGTH(LTRIM(RTRIM(ps.pref_data)))
+             THEN 'leading or trailing whitespace'
+        ELSE ''
+    END AS [why_suspicious]
+FROM pref_setting ps
+WHERE ps.user_id = 'CATALOGER'
+  AND ps.pref_data IS NOT NULL
+  AND (ps.pref_data COLLATE Latin1_General_BIN LIKE '%[^ -~]%'
+       OR DATALENGTH(ps.pref_data) = 255
+       OR DATALENGTH(ps.pref_data) <> DATALENGTH(LTRIM(RTRIM(ps.pref_data))))
+ORDER BY [why_suspicious], ps.pref_category, ps.pref_id;
+```
+
+`[^ -~]` matches any byte outside printable ASCII — space (32) through tilde
+(126) — so control characters and high bytes both show up. The `BIN` collation
+is what makes that range mean bytes rather than linguistic equivalence.
+
+**`DATALENGTH` exactly 255** deserves attention on its own: the column is
+`varchar(255)`, so a value that fills it precisely is the signature of something
+written through a path that truncated it, and a truncated setting is a corrupted
+setting.
+
+Cross-reference the output against 4c. **A row appearing in both lists is the
+strongest candidate you will get from SQL alone.**
+
+### 4e. What the diff actually found
+
+Run 2026-10-02. **20 rows differed** out of 56 on the real account and 54 on the
+test login. Recorded here so the analysis is not redone from scratch.
+
+Nothing was byte-level corrupt — 4d came back empty, the longest value was 93
+bytes against a 255 limit, every byte printable. **So the fault is a
+semantically invalid value, not damaged data**, which narrows it considerably.
+
+**Ranked suspects:**
+
+| # | Row | Why |
+| ---: | --- | --- |
+| 1 | `WRKSPC` / `rect` | **The only objectively invalid value in the set.** See below. |
+| 2 | `CTRLBAR` / `basebar7`, `extbar7` | Present on the test login, **absent** on the real account |
+| 3 | `WRKSPC` / `image` + `istyle` | Points at a local image file that may no longer exist |
+| 4 | `CTRLBAR` / `basebar1` | Three extra semicolon fields vs the test login (18 vs 15) |
+
+**Suspect 1 in detail.** The workspace rectangle on the real account was
+`-1928,-8,-632,760`; on the test login, `334,241,1630,1009`. Both are **exactly
+1296 x 768** — same window size, different position — but the first sits
+entirely off-screen, on a monitor to the *left* of the primary display. Paired
+with `max` = `1;1` (maximized) against `0;0`.
+
+If that second monitor is gone — redocked, reimaged, moved — the client restores
+a maximized workspace onto a display that does not exist. That is a known way
+for a Windows application to hang or die when it next opens a modal dialog,
+which is when an import runs.
+
+**This has not been tied to the `invalid semaphore handle` error mechanically**,
+and should not be presented as though it had. It is the strongest candidate on
+the evidence, nothing more.
+
+Suspects 2 and 4 are for the vendor: the control-bar serialisation format is
+undocumented here, so the field-count difference is reported, not interpreted.
+
+### 4f. Test suspect 1 — two rows, fully reversible
+
+> **The operator must be fully logged out of Horizon before this runs.**
+> If `save_preferences` is set on the account, an open client writes its
+> **in-memory** preferences back when it closes, overwriting the update and
+> making a correct fix look like a failure. Check `save_preferences` in 4a.
+
+**The audit.** Expect exactly 2 rows.
+
+```sql
+SELECT
+    ps.pref_category,
+    ps.[pref_group#],
+    ps.pref_id,
+    ps.pref_data                        AS [current_value],
+    CASE ps.pref_id
+         WHEN 'rect' THEN '334,241,1630,1009'
+         WHEN 'max'  THEN '0;0'
+    END                                 AS [proposed_value]
+FROM pref_setting ps
+WHERE ps.user_id = 'CATALOGER'
+  AND ps.pref_category = 'WRKSPC'
+  AND ps.pref_id IN ('rect', 'max');
+```
+
+**The update.** Identical `WHERE` to the audit, so the rows changed are provably
+the rows reviewed.
+
+```sql
+BEGIN TRANSACTION;
+
+UPDATE pref_setting
+SET    pref_data = CASE pref_id
+                        WHEN 'rect' THEN '334,241,1630,1009'
+                        WHEN 'max'  THEN '0;0'
+                        ELSE pref_data
+                   END
+WHERE user_id = 'CATALOGER'
+  AND pref_category = 'WRKSPC'
+  AND pref_id IN ('rect', 'max');
+
+SELECT @@ROWCOUNT AS [rows_updated];    -- must be 2
+
+-- COMMIT TRANSACTION;
+-- ROLLBACK TRANSACTION;
+```
+
+**`ELSE pref_data` is load-bearing.** A `CASE` with no `ELSE` returns `NULL` for
+any unmatched row, and `pref_data` is nullable — so widening the `IN` list
+without widening the `CASE` would silently null out settings rather than leave
+them alone.
+
+**Do not leave the transaction open.** Every staff client reads `pref_setting`
+at login, so held locks block the library rather than just this session.
+
+**The rollback** — this is the backup that matters for a two-row change. The
+original values, captured before the update:
+
+```sql
+UPDATE pref_setting
+SET    pref_data = CASE pref_id
+                        WHEN 'rect' THEN '-1928,-8,-632,760'
+                        WHEN 'max'  THEN '1;1'
+                        ELSE pref_data
+                   END
+WHERE user_id = 'CATALOGER'
+  AND pref_category = 'WRKSPC'
+  AND pref_id IN ('rect', 'max');
+```
+
+**Then have the operator launch a fresh client and re-run the import.**
+
+| Outcome | Meaning |
+| --- | --- |
+| Succeeds | Found and fixed. Two rows, no bulk correction needed. |
+| Still crashes | Suspect 1 eliminated for the cost of two rows. Move to suspect 2. |
+| Crashes differently | Record the new error verbatim — a changed signature is information. |
+
+**Afterwards, re-run the audit.** If the two rows have reverted, the operator's
+client session wrote its preferences back and the test did not actually run.
+
+### What to send on
+
+The vendor asked for the rows that differ, so they can build corrected values.
+Send:
+
+- 4b's group distribution — it is the context that makes the rest readable
+- 4c's diff, **labelled as the candidate set, not the answer**
+- 4d's anomalies, flagged as the narrower list
+- a note on whether the test login is a copy or a fresh default, because it
+  changes what the diff means
+
+**Do not commit any of this output.** It is query output from a live ILS;
+`.gitignore` blocks `*.csv`/`*.xlsx` for exactly this reason. `pref_data` can
+hold paths, server names and file locations.
+
+---
+
+## Step 5: Clean up
 
 The test rows are harmless but they are scratch, and scratch that stays becomes
 the kind of thing

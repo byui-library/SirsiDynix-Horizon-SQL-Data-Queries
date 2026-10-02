@@ -289,12 +289,204 @@ SELECT @@ROWCOUNT AS [rows_inserted];   -- compare to the audit's "will INSERT"
   <div class="step-head">
     <div class="step-num">9</div>
     <div class="step-title">
-      <h2>Step 4: Clean up</h2>
+      <h2>4a. Are the two accounts comparable?</h2>
+    </div>
+    <span class="chip read">Read-only</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">4a. Are the two accounts comparable?</span><button class="copy">Copy</button></div>
+    <pre><code>-- Read-only. Every column looked up in horizon-schema/, not inferred.
+SELECT u.user_id,
+       u.user_name,
+       u.[pref_group#],
+       u.save_preferences,
+       u.user_disabled
+FROM user_id u
+WHERE u.user_id IN ('CATALOGER', 'CATALOGER_T')
+ORDER BY u.user_id;</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">10</div>
+    <div class="step-title">
+      <h2>4b. Which preference groups do their rows actually sit in?</h2>
+    </div>
+    <span class="chip read">Read-only</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">4b. Which preference groups do their rows actually sit in?</span><button class="copy">Copy</button></div>
+    <pre><code>-- Read-only.
+SELECT ps.user_id,
+       ps.[pref_group#],
+       COUNT(*) AS [rows]
+FROM pref_setting ps
+WHERE ps.user_id IN ('CATALOGER', 'CATALOGER_T')
+GROUP BY ps.user_id, ps.[pref_group#]
+ORDER BY ps.user_id, ps.[pref_group#];</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">11</div>
+    <div class="step-title">
+      <h2>4c. The diff</h2>
+    </div>
+    <span class="chip read">Read-only</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">4c. The diff</span><button class="copy">Copy</button></div>
+    <pre><code>-- Read-only. Shows rows present on one side only, and rows whose value differs.
+SELECT
+    COALESCE(a.pref_category, b.pref_category) AS [pref_category],
+    COALESCE(a.[pref_group#], b.[pref_group#]) AS [pref_group#],
+    COALESCE(a.pref_id, b.pref_id)             AS [pref_id],
+    CASE WHEN a.user_id IS NULL THEN 'only on the test login'
+         WHEN b.user_id IS NULL THEN 'only on the real account'
+         ELSE 'value differs' END              AS [difference],
+    a.pref_data                                AS [real_value],
+    b.pref_data                                AS [test_value],
+    DATALENGTH(a.pref_data)                    AS [real_bytes],
+    DATALENGTH(b.pref_data)                    AS [test_bytes]
+FROM      (SELECT pref_category, [pref_group#], user_id, pref_id, pref_data
+           FROM pref_setting WHERE user_id = 'CATALOGER')   a
+FULL OUTER JOIN
+          (SELECT pref_category, [pref_group#], user_id, pref_id, pref_data
+           FROM pref_setting WHERE user_id = 'CATALOGER_T') b
+       ON  b.pref_category = a.pref_category
+       AND b.pref_id       = a.pref_id
+       AND (b.[pref_group#] = a.[pref_group#]
+            OR (b.[pref_group#] IS NULL AND a.[pref_group#] IS NULL))
+WHERE a.user_id IS NULL
+   OR b.user_id IS NULL
+   OR (a.pref_data IS     NULL AND b.pref_data IS NOT NULL)
+   OR (a.pref_data IS NOT NULL AND b.pref_data IS     NULL)
+   OR a.pref_data COLLATE Latin1_General_BIN
+   &lt;&gt; b.pref_data COLLATE Latin1_General_BIN
+   OR DATALENGTH(a.pref_data) &lt;&gt; DATALENGTH(b.pref_data)
+ORDER BY [pref_category], [pref_group#], [pref_id];</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">12</div>
+    <div class="step-title">
+      <h2>4d. Hunt the corruption directly</h2>
+    </div>
+    <span class="chip read">Read-only</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">4d. Hunt the corruption directly</span><button class="copy">Copy</button></div>
+    <pre><code>-- Read-only. Structurally suspicious preference values on the real account.
+SELECT
+    ps.pref_category,
+    ps.[pref_group#],
+    ps.pref_id,
+    ps.pref_data,
+    DATALENGTH(ps.pref_data) AS [bytes],
+    CASE
+        WHEN ps.pref_data COLLATE Latin1_General_BIN LIKE '%[^ -~]%'
+             THEN 'contains control or high-byte characters'
+        WHEN DATALENGTH(ps.pref_data) = 255
+             THEN 'exactly 255 bytes - possibly truncated'
+        WHEN DATALENGTH(ps.pref_data)
+          &lt;&gt; DATALENGTH(LTRIM(RTRIM(ps.pref_data)))
+             THEN 'leading or trailing whitespace'
+        ELSE ''
+    END AS [why_suspicious]
+FROM pref_setting ps
+WHERE ps.user_id = 'CATALOGER'
+  AND ps.pref_data IS NOT NULL
+  AND (ps.pref_data COLLATE Latin1_General_BIN LIKE '%[^ -~]%'
+       OR DATALENGTH(ps.pref_data) = 255
+       OR DATALENGTH(ps.pref_data) &lt;&gt; DATALENGTH(LTRIM(RTRIM(ps.pref_data))))
+ORDER BY [why_suspicious], ps.pref_category, ps.pref_id;</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">13</div>
+    <div class="step-title">
+      <h2>4f. Test suspect 1 — two rows, fully reversible</h2>
+    </div>
+    <span class="chip read">Read-only</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">4f. Test suspect 1 — two rows, fully reversible</span><button class="copy">Copy</button></div>
+    <pre><code>SELECT
+    ps.pref_category,
+    ps.[pref_group#],
+    ps.pref_id,
+    ps.pref_data                        AS [current_value],
+    CASE ps.pref_id
+         WHEN 'rect' THEN '334,241,1630,1009'
+         WHEN 'max'  THEN '0;0'
+    END                                 AS [proposed_value]
+FROM pref_setting ps
+WHERE ps.user_id = 'CATALOGER'
+  AND ps.pref_category = 'WRKSPC'
+  AND ps.pref_id IN ('rect', 'max');</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">14</div>
+    <div class="step-title">
+      <h2>4f. Test suspect 1 — two rows, fully reversible</h2>
     </div>
     <span class="chip write">Writes</span>
   </div>
   <div class="codewrap">
-    <div class="codebar"><span class="codelabel">Step 4: Clean up</span><button class="copy">Copy</button></div>
+    <div class="codebar"><span class="codelabel">4f. Test suspect 1 — two rows, fully reversible</span><button class="copy">Copy</button></div>
+    <pre><code>BEGIN TRANSACTION;
+
+UPDATE pref_setting
+SET    pref_data = CASE pref_id
+                        WHEN 'rect' THEN '334,241,1630,1009'
+                        WHEN 'max'  THEN '0;0'
+                        ELSE pref_data
+                   END
+WHERE user_id = 'CATALOGER'
+  AND pref_category = 'WRKSPC'
+  AND pref_id IN ('rect', 'max');
+
+SELECT @@ROWCOUNT AS [rows_updated];    -- must be 2
+
+-- COMMIT TRANSACTION;
+-- ROLLBACK TRANSACTION;</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">15</div>
+    <div class="step-title">
+      <h2>4f. Test suspect 1 — two rows, fully reversible</h2>
+    </div>
+    <span class="chip write">Writes</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">4f. Test suspect 1 — two rows, fully reversible</span><button class="copy">Copy</button></div>
+    <pre><code>UPDATE pref_setting
+SET    pref_data = CASE pref_id
+                        WHEN 'rect' THEN '-1928,-8,-632,760'
+                        WHEN 'max'  THEN '1;1'
+                        ELSE pref_data
+                   END
+WHERE user_id = 'CATALOGER'
+  AND pref_category = 'WRKSPC'
+  AND pref_id IN ('rect', 'max');</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">16</div>
+    <div class="step-title">
+      <h2>Step 5: Clean up</h2>
+    </div>
+    <span class="chip write">Writes</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">Step 5: Clean up</span><button class="copy">Copy</button></div>
     <pre><code>-- Remove the copied preferences once the test is concluded.
 DELETE FROM pref_setting WHERE user_id = 'CATALOGER_T';
 SELECT @@ROWCOUNT AS [rows_removed];</code></pre>

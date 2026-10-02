@@ -1,4 +1,4 @@
-﻿-- Step 4: Clean up
+﻿-- Step 5: Clean up
 -- WRITES - review before running
 --
 -- GENERATED from pref-setting-user-profile-test/README.md by tools/Build-SolutionDocs.ps1.

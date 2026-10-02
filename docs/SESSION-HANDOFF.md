@@ -1,247 +1,199 @@
-# Session handoff — 2026-09-23
+# Session handoff — 2026-10-02
 
-State of play. Read this first; it says what is finished, what is genuinely
-unresolved, and what to do next.
+State of play, and the exact next steps. Read §1 first; it is the only thing
+with an open action on it.
 
----
-
-## 0. Nothing is blocking — the suite is green
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\Test-Tools.ps1
-```
-
-**77 passed, 0 failed.** Run it before every commit; it is the redaction guard,
-and this repository is public.
-
-**Next action: §1 — the `pref_setting` test.** It is written and committed but
-has never touched the database, and it is blocked on a step outside SQL: the
-throwaway Horizon login has to be created in the staff client first.
-
-### What was resolved — token-scoped denylist entries
-
-The guard used to fail on denylist **entry #7**, a 4-character value appearing
-inside two application table names (`fix####Proxy`, `fix####Redirect`) that the
-schema export and generated index pages carry. It matched as a **substring
-only, never as a standalone token**.
-
-Renaming those tables was not an option — other systems reference them — and the
-two obvious remedies were both wrong:
-
-- **Deleting the entry** would drop all protection for that value, including if
-  it later leaked standalone as a login or location code.
-- **Excluding the files** would create a permanent blind spot, and doctoring the
-  export is worse still: it silently disagrees with the database, which is the
-  error class this repo exists to prevent.
-
-So the guard gained a third, narrower form. A denylist line may now be written
-`word:<value>`, which is matched only where the value stands as its **own
-token**:
-
-| Line | Matched |
-| --- | --- |
-| `SOMEVALUE` | **anywhere** — the default, and the safest |
-| `word:SOMEVALUE` | only as a **standalone token** |
-
-Entry #7 is now `word:`-scoped. Verified still caught standalone in every shape
-that matters — `server is <v>`, `login='<v>'`, `dbo.<v>`, `<v>_backup`,
-`path\<v>\file`, `-Location <v>` — and correctly not flagged inside
-`fix<v>Proxy`. The other six entries are unchanged and still match anywhere.
-
-**This is a narrowing, not an exclusion.** No file stopped being scanned. 13
-tests cover the matcher; see `ConvertTo-RedactionPattern` in
-[`tools/Test-Tools.ps1`](../tools/Test-Tools.ps1) and the entry-form table in
-[`CLAUDE.md`](../CLAUDE.md#denylist-entry-forms).
-
-> **Never use a real identifier as an illustrative example**, including in a code
-> comment or in a sentence asserting it appears nowhere. The guard caught exactly
-> that twice while this was being written — once in this handoff, once in a
-> docstring in the guard's own source. Use the placeholders.
+Substitute real values for the placeholders throughout, per the table in
+[`CLAUDE.md`](../CLAUDE.md#never-publish-real-site-identifiers):
+**`CATALOGER`** = the affected operator's Horizon login, **`CATALOGER_T`** = the
+replacement profile created for them. Both are in
+`tools/.redaction-denylist.txt`, so they must never be typed into a tracked file.
 
 ---
 
-## 1. New this session — `pref-setting-user-profile-test`
+## 1. The live issue — a Horizon client crash on import
 
-**Committed.** [`solutions/pref-setting-user-profile-test/`](../solutions/pref-setting-user-profile-test/README.md)
-— README plus 8 generated `.sql` files and a runbook.
+**Status: cause narrowed to one of four preference rows. A two-row test is
+written and ready to run. Nothing has been changed in the database.**
 
-A **diagnostic, not a repair.** A cataloguer crashes the Horizon client on a
-delete-file import with:
+### Where this came from
+
+The operator's Horizon client crashed on a delete-file import with:
 
 ```text
 Db.TermSession: not all database 'connections' are properly 'logged out'-- logging them out
 Fatal Horizon (Internal) Error: LbSync.Request: invalid semaphore handle
 ```
 
-Vendor support attributes it to a corrupted preference tied to the Horizon user
-profile, and proposed copying the operator's `pref_setting` rows to a throwaway
-login to confirm. The solution wraps that test in this repo's audit/backup/
-transaction contract.
+Reinstalling the client did not help. Vendor support attributed it to a
+corrupted preference tied to that user profile. **A fresh profile was created
+and the import ran cleanly under it**, which also cleared a separate KillBib
+hang once `/r` pointed at the new login. So the fault is in something attached
+to the original account, and the operator is currently working from the
+replacement.
 
-### What the schema lookup established
+The vendor has asked for the differing `pref_setting` rows so they can correct
+the real account and stop the operator working from the replacement.
 
-`pref_setting` is exactly five columns — `pref_category`, `pref_group#`,
-`user_id`, `pref_id`, `pref_data` — with no identity and no computed column, so
-the vendor's five-column `INSERT` copies a row **completely**. Worth having
-checked: a sixth column would have produced partial rows and a test that proved
-nothing.
+### What has been established
 
-`PK_PREF_SETTING` is a **unique index, not a declared primary key** — the usual
-trap. Grain is `pref_category, pref_group#, user_id, pref_id`. Because `user_id`
-sits inside that key, copied rows cannot collide with the source rows.
+Queries 4a–4d of
+[`pref-setting-user-profile-test`](../solutions/pref-setting-user-profile-test/README.md)
+have been run. Results are recorded in §4e of that README — **read it rather
+than re-deriving**. In short:
 
-### Three faults found in the vendor's script
+- Both accounts sit in `pref_group#` **0**, so the comparison is valid.
+- **56 rows** on the real account, **54** on the replacement, **20 differ**.
+- **Nothing is byte-level corrupt.** No control characters, nothing near the
+  255-byte limit, no stray whitespace. The fault is a *semantically invalid
+  value*, not damaged data.
 
-1. **Nothing enforces that the test user exists.** There is **no foreign key on
-   `pref_setting.user_id`** — none on the table at all. The `INSERT` succeeds for
-   an account that was never created, reports rows copied, and is
-   indistinguishable from success. You then cannot log in, and the test never
-   ran.
-2. **`pref_group#` is part of the key and the copy preserves it.** Their `SELECT`
-   carries the operator's `pref_group#` across unchanged, while
-   `user_id.pref_group#` (default `2`) decides which group the *test* account
-   loads. If those differ, the copied rows land in a group the test login never
-   reads — the import runs clean and you conclude the profile is fine when
-   nothing was ever loaded. **A false "fixed".**
-3. **`save_preferences`** (`one_bit`, default 1) writes the session's preferences
-   back on exit, so a second attempt is no longer testing the copied rows.
+Ranked suspects:
 
-Also collapsed their `IF EXISTS … DELETE … INSERT ELSE INSERT`: both branches run
-the same `INSERT`, and a `DELETE` matching nothing is already a no-op.
+| # | Row | Why |
+| ---: | --- | --- |
+| **1** | `WRKSPC` / `rect` + `max` | The only objectively invalid value: window geometry entirely off-screen |
+| 2 | `CTRLBAR` / `basebar7`, `extbar7` | Present on the replacement, **absent** on the real account |
+| 3 | `WRKSPC` / `image` + `istyle` | Points at a local image file that may no longer exist |
+| 4 | `CTRLBAR` / `basebar1` | Three extra semicolon fields vs the replacement (18 vs 15) |
 
-### Where it is blocked
+Suspect 1: the rectangle is `-1928,-8,-632,760` against `334,241,1630,1009` on
+the replacement. **Both are exactly 1296 x 768** — same size, different place —
+but the first is wholly off-screen, on a monitor left of the primary display,
+and `max` is `1;1`. If that monitor is gone, the client restores a maximized
+workspace onto a display that does not exist.
 
-**The throwaway Horizon account must be created in the staff client first.** That
-is a GUI action, not SQL. Do not hand-write a `user_id` row — it carries
-`user_password` (`varbinary`) and `user_password_64`, and a hand-built row will
-not authenticate.
+**This has not been tied to the `invalid semaphore handle` error mechanically.**
+It is the strongest candidate on the evidence. Do not let it be reported as a
+diagnosis.
 
-**Nothing has been run against the database.** Step 0 (three read-only queries)
-gates everything and has not been executed.
+### Do this next, in this order
 
-### Next steps, in order
+**Step 1 — confirm the operator is fully logged out of Horizon.**
+Not optional. If `save_preferences` is set on that account, an open client
+writes its in-memory preferences back when it closes, overwriting the update and
+making a correct fix look like a failure.
 
-1. Create the test login in Horizon; confirm it is enabled.
-2. Run **Step 0** (read-only). Compare `pref_group#` between the two accounts —
-   if they differ, fix it on the account rather than rewriting the group in the
-   copy.
-3. Back up `pref_setting`, run **Step 1** (audit), record both counts.
-4. Run **Step 2** inside the transaction; commit only if both `@@ROWCOUNT`
-   values match the audit. **Do not leave the transaction open** — every staff
-   client reads `pref_setting` at login, so an open transaction blocks the
-   library.
-5. Run the import as the test user with a `DbDebug` trace
-   (`Ctrl+Shift+Alt+D`) already running.
+> **Open question nobody has answered yet:** what is `save_preferences` on the
+> real account? It was in 4a's output and was not recorded. Get it before
+> running anything — it decides whether the eventual fix survives at all.
 
-**Worth sending back to support:** their script cannot distinguish "import
-succeeded, so the profile was at fault" from "import succeeded because the copy
-never loaded". A clean run is only evidence once Step 0 has passed.
+**Step 2 — run the audit** in §4f of the solution README. Expect exactly 2 rows.
+Anything else, stop.
 
----
+**Step 3 — run the update** in §4f, inside the transaction. `@@ROWCOUNT` must be
+`2` before you commit. Do not leave the transaction open: every staff client
+reads `pref_setting` at login, so held locks block the library.
 
-## 2. The shareable toolkit — published
+The rollback values are recorded in §4f (`-1928,-8,-632,760` and `1;1`). That is
+the backup for a change this small — no table copy needed.
 
-A generalised, site-neutral version of this repository was built and published:
+**Step 4 — have the operator launch a fresh client and re-run the import.**
 
-**<https://github.com/byui-library/horizon-dba-toolkit>** — public, MIT, 53 files.
+| Outcome | What to do |
+| --- | --- |
+| Succeeds | Found and fixed. Tell the vendor it was `WRKSPC/rect` — off-screen geometry — and that no bulk correction is needed. |
+| Still crashes | Suspect 1 eliminated for two rows. Move to suspect 2 (`basebar7`/`extbar7`). |
+| Crashes differently | Record the new error verbatim. A changed signature is information. |
 
-Local clone at `..\horizon-dba-toolkit\`. It is a **separate repository**; this
-one is unchanged by its existence.
+**Step 5 — re-run the audit.** If the two rows have reverted to their old
+values, the client wrote its session back and the test never actually ran.
 
-The organising idea: prose states only what is true of Horizon *everywhere*, and
-everything that varies by site is **generated** from that site's own database.
-It ships with no schema in it. `tools/Get-SiteProfile.ps1` is new there — it
-measures compatibility level, collation, recovery model, declared PKs, and
-probes which T-SQL functions actually work, then proves the **date epoch** by
-scoring every candidate anchor from −3 to +3 days against a weekday histogram of
-`bib_control`.
+### What the vendor is still owed
 
-### Two open items on that repo
+- The ranked suspect list above, with suspect 1 labelled a candidate and **not**
+  a diagnosis.
+- Suspects 2 and 4 are questions *for them*: the control-bar serialisation
+  format is undocumented here, so the field-count difference is reported, not
+  interpreted.
+- A correction to something already sent, if it was: the replacement profile is
+  a **fresh default**, not a copy of the operator's rows. That changes what the
+  diff means, and an earlier draft reply overstated the candidate list as a
+  result.
 
-- **`LICENSE` reads `Copyright (c) 2026 Brigham Young University-Idaho`**,
-  substituted for the `[Your Name]` placeholder. Now published attribution —
-  confirm with whoever owns that call.
-- **`Get-SiteProfile.ps1` has never run against a live database.** It parses
-  clean, is pure ASCII with no BOM, and the suite statically verifies it writes
-  no identifiers and contains no data-modifying SQL — but its queries are
-  unexecuted. Run it once (read-only) before pointing another site at the setup
-  instructions.
+**Do not commit any query output.** `pref_data` holds local filesystem paths —
+one of them contains a username. `.gitignore` blocks `*.csv`/`*.xlsx` for
+exactly this reason.
 
 ---
 
-## 3. Uncommitted work sitting in the tree
+## 2. Uncommitted work sitting in the tree
 
-**Not mine, and deliberately left alone.** Decide what to do with it.
+Everything below is written, tested and **not committed**. The suite passes; a
+commit is one command.
 
 | Path | State |
 | --- | --- |
-| `solutions/db-scratch-table-cleanup/README.md` | **+78 lines, uncommitted** — in-progress edit |
-| `solutions/db-scratch-table-cleanup/sql/02, 04, 05` + `runbook.html` | regenerated by a `Test-Tools.ps1` run to match that README; they belong **with** it |
-| `find-borrlegal-wk.sql` | untracked, at repo root |
-| `restore-borrlegal-kw-permissions.sql` | untracked, at repo root |
-| `restore-borrlegal-kw-triggers.sql` | untracked, at repo root |
-
-The three loose `.sql` files sit at the **repository root**, which breaks the
-structure convention — work belongs in `solutions/<name>/` with a README as the
-deliverable, and `sql/*.sql` is generated from that README, never hand-placed. If
-this is real work, scaffold it:
+| `solutions/pref-setting-user-profile-test/` | §4 (the comparison) and §4e–4f (findings + the two-row test) added today |
+| `docs/SESSION-HANDOFF.md` | this file |
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\New-Solution.ps1 `
-    -Name borrlegal-kw-restore -Type Fix -Summary "One line for the index."
+powershell -ExecutionPolicy Bypass -File tools\Test-Tools.ps1
+git add -A
+git commit
+git push origin master
 ```
 
-If it is scratch, delete it or move it out of the repo.
+Run the suite **before** committing — it is the redaction guard, and this
+repository is public.
 
 ---
 
-## 4. Earlier work — still current
+## 3. Recently finished — no action needed
 
-### The ProQuest delete — DONE
+### `borrLegal_KW` restore — pushed
 
-Verified complete 2026-08-28. All 6,790 bibs deleted, no item rows remained, both
-post-run checks returned 0. Recorded in [`killbib.md`](killbib.md).
+[`solutions/borrlegal-kw-restore`](../solutions/borrlegal-kw-restore/README.md),
+commit `29be4a6`. The scratch-table cleanup dropped a live local customisation —
+a table plus three DML triggers deployed together in 2023 — and cataloguers lost
+borrower edits three days later.
 
-The zero item count means that set contained no serials with issues or
-predictions attached. **Do not generalise it** — KillBib skips such copies, so a
-future list can leave items behind after a *successful* run.
+Two findings worth not re-deriving: the object is `borrLegal_KW`, not
+`borrLegal_WK` (no `*_WK` object exists in the export, and `word.n_borrLegalKW`
+does); and restoring the triggers does **not** repair the keyword counters that
+drifted while they were absent. **Step 4 of that solution is still outstanding**
+if the triggers have been restored — drift produces wrong search results, never
+an error.
 
-### Scratch-table cleanup — DONE
+Its root cause is fixed too: `db-scratch-table-cleanup` now excludes any table
+carrying triggers, because `sys.sql_expression_dependencies` cannot see a
+trigger's own parent, so a table-plus-triggers customisation reads as an
+unreferenced orphan.
 
-42 tables dropped 2026-08-28, 0 failures. Three tables were pulled off the
-candidate list as vendor, not scratch: all three had a post-install
-`create_date` because something rebuilt them. The dependency check did not catch
-them — a standalone lookup table has nothing referencing it. That near-miss is
-why step 1b reports structural signals beside each candidate.
+### Toolkit published
 
-Schema export refreshed afterwards: 928 tables, 433 views, 13,949 columns.
+<https://github.com/byui-library/horizon-dba-toolkit> — public, MIT, a
+site-neutral version of this repository. Two open items: confirm the `LICENSE`
+copyright holder, and run `Get-SiteProfile.ps1` once against a live database
+(it has never been executed).
 
-### Accepted residual risk
+### Redaction guard
 
-The real server name is in public git history at `d765f8e` (2026-07-17). A
-deliberate decision was made not to rewrite: it is a hostname rather than a
-credential, it is already public, and force-pushing a public repo breaks clones
-while GitHub still serves the old commit by SHA. **No password was ever
-committed.**
+A denylist line may be written `word:<value>` to match only where the value
+stands as its own token — a narrowing for short values that occur inside
+unrelated identifiers, not an exclusion. See
+[`CLAUDE.md`](../CLAUDE.md#denylist-entry-forms).
 
 ---
 
-## 5. Things that will bite you if you forget them
+## 4. Things that will bite you if you forget them
 
 - **Never guess a column name.** A report was written against
   `bib_control.creator`; the real column is `create_user`. Grep
   `horizon-schema/all_tables_all_views.csv`.
-- **Indexes named `PK_*` are not primary keys.** Only 6 declared PKs exist.
-  Grain comes from *unique indexes*.
-- **`STRING_AGG` does not exist** at this compatibility level, and `FOR XML PATH`
-  fails on `bib.text` because of its control characters.
-- **You cannot aggregate an `EXISTS`** — Msg 130. Compute the flag in a derived
-  table first.
-- **Generated files are generated.** Never hand-edit `sql/*.sql` or
-  `runbook.html`; edit the README and re-run `Build-SolutionDocs.ps1`. Note that
-  running it **unscoped regenerates every solution**, which is how an unrelated
-  solution's outputs end up modified in your tree.
+- **Never use a real identifier as an example**, including in a comment or in a
+  sentence saying it appears nowhere. The guard has caught that three times now,
+  twice in this assistant's own writing.
+- **Indexes named `PK_*` are not primary keys.** Grain comes from unique indexes.
+- **`pref_data` comparisons need care.** The collation is `CI` and the type is
+  `varchar`, so `=` ignores case *and* trailing spaces; `pref_group#` is
+  nullable, so a plain `=` join drops those rows. Use
+  `COLLATE Latin1_General_BIN` plus `DATALENGTH`. §4c has the worked form.
+- **A `CASE` with no `ELSE` returns `NULL`.** In an `UPDATE` against a nullable
+  column that silently erases data. Always `ELSE <column>`.
+- **Generated files are generated.** Edit the README and re-run
+  `Build-SolutionDocs.ps1`. Unscoped, it regenerates *every* solution — which is
+  how an unrelated solution's outputs end up modified in your tree.
 - **Dates are `smallint` day counts** from a verified `1970-01-01` epoch. Verify
-  with a weekday histogram, never `MAX()` — a one-day error is invisible to it.
-- **Run the test suite before committing.** It is the redaction guard, and this
-  repository is public.
+  with a weekday histogram, never `MAX()`.
+- **Run the test suite before committing.** This repository is public.
