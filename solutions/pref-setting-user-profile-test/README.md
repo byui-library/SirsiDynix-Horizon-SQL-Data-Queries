@@ -558,6 +558,197 @@ hold paths, server names and file locations.
 
 ---
 
+## Outcome log
+
+### 2026-10-06 — applied, and it was two faults rather than one
+
+Four rows changed on the real account, `@@ROWCOUNT` 2 and 2, verified
+byte-for-byte afterwards:
+
+| Row | Before | After |
+| --- | --- | --- |
+| `WRKSPC` / `rect` | `-1928,-8,-632,760` | `334,241,1630,1009` |
+| `WRKSPC` / `max` | `1;1` | `0;0` |
+| `CTRLBAR` / `basebar7` | *absent* | inserted from the replacement account |
+| `CTRLBAR` / `extbar7` | *absent* | inserted from the replacement account |
+
+**Result:**
+
+| Path | Before | After |
+| --- | --- | --- |
+| Import through the Horizon **client interface** | crashed | **works** |
+| Import via **marcin**, `/r` at the real account | hung | file imports, then fails at the end with `invalid semaphore handle` |
+
+So the interface fault is fixed and a second one remains. Both improved —
+marcin went from hanging to completing — which argues they shared a cause
+without being the same failure.
+
+### The error is on the teardown path, not the work path
+
+Worth stating because it changes how every result here reads.
+`Db.TermSession` is **session termination**. The import does its work and then
+the shutdown fails. Re-read against that, the original pair was always a
+teardown failure, which is why "the import appears to work, then errors" is
+consistent with the signature rather than a contradiction.
+
+It also means an unclean teardown leaks connections, so **verify imported
+records actually landed** rather than trusting a run that ended this way.
+
+### `save_preferences = 1` on both accounts — four consequences
+
+1. **The bad geometry was written by a session.** The client put `-1928,...`
+   there itself, so that window genuinely was on a monitor left of the primary
+   display at some point. **Before calling the geometry invalid, confirm that
+   monitor is actually gone.** If it is still attached, the value was valid and
+   this row was never the fault.
+2. **It supplies a mechanism for the missing rows.** A crash during
+   preference write-back truncates it — and the real account was missing
+   exactly the *last* two control-bar rows while holding 0–6. That fits an
+   interrupted write, which makes `basebar7`/`extbar7` plausibly a **symptom**
+   of an earlier crash that then became self-perpetuating: the client reads an
+   incomplete bar set and dereferences nothing, which is what an invalid handle
+   is.
+3. **The fix is self-sustaining.** Once a clean session closes, a complete and
+   valid preference set is written back.
+4. **The operator must be logged out while the update runs**, or their client
+   writes its in-memory copy back over it on close.
+
+### Eliminated — do not re-run these
+
+| Hypothesis | How it died |
+| --- | --- |
+| Byte-level corruption in `pref_data` | 4d returned nothing. No control characters, no value near the 255-byte limit, no stray whitespace; longest was 93 bytes. The fault is a semantically invalid value, not damaged data. |
+| A marcin match point pointing at a dropped table | All 68 rows across `bib_`/`auth_`/`link_marcin_match_param` resolve. Only `union_inverted`, `isbn_inverted`, `lccn_inverted`, `issn_inverted`, `uniform` and `authnum_inverted` are in use. **The 2026-08-28 scratch-table cleanup is exonerated for this failure.** |
+| A `borrLegal_KW` / keyword-index connection | No `*_KW` table appears anywhere in marcin's match path. |
+
+The middle one was worth testing precisely because the cleanup *had* already
+broken something else at this site — see
+[`borrlegal-kw-restore`](../borrlegal-kw-restore/README.md). It is a reasonable
+suspicion that happens to be wrong here.
+
+### Confirmed profile-specific
+
+marcin has been run **multiple times** with `/r` pointed at the replacement
+account, with no teardown error on any of them. The same import against the
+real account fails every time. So this is not a general marcin fault — it is
+still something in that account's preferences, and **16 of the 20 differences
+remain in play**.
+
+### Remaining candidates, ranked
+
+**1. ~~`WRKSPC` / `image` + `istyle`~~ — TESTED. Made things worse; see the
+2026-10-06 (later) entry below.**
+
+The reasoning was: the image row points at a path under the operator's own
+profile directory with `istyle` non-zero, so the client actively tries to load
+it — and the file **was** confirmed missing after the client reinstall. A
+*handle* error on the *teardown* path fits an image that failed to load, leaving
+nothing to release.
+
+The file being missing was real. The conclusion drawn from it was wrong.
+
+**2. `CE` / `bwflvr`** — a named value on the real account against what reads as
+a sentinel on the replacement. `CE` is the cataloguing editor and the name
+suggests a bibliographic workform flavour, which an import would plausibly
+consult. Confirm the named flavour still exists before assuming the value is
+fine.
+
+**3. `CE` / `edMode`** — `5` against `50`.
+
+**4. `CTRLBAR` / `basebar1`** — three extra semicolon fields. For the vendor;
+the serialisation format is undocumented here.
+
+The remaining eleven rows are toolbar geometry (`CTRLBAR`, `MTLBAR`, `CPBB`,
+`CPHKBAR`). A command-line import tool is unlikely to consult window chrome, so
+they rank last — with the caveat that `basebar7` did matter, though as an
+*absent* row rather than a wrong value.
+
+**Not yet recorded:** which `import_source` the failing import uses. There are
+roughly forty, at differing `ord` priorities, and knowing the one in play would
+narrow the marcin side considerably.
+
+### 2026-10-06 (later) — a regression, and why this is now the vendor's
+
+**The `WRKSPC`/`image` + `istyle` rows were deleted, and marcin got worse.**
+
+The file those rows pointed at was confirmed missing on the operator's machine,
+so both rows were deleted to match the replacement account, which has neither.
+The delete committed — verified, 0 rows returned afterwards.
+
+marcin then reported, in this order:
+
+```text
+ACCESS_VIOLATION
+Db.TermSession: not all database 'connections' are properly 'logged out'-- logging them out
+LbSync.Request: invalid semaphore handle
+```
+
+Before the delete it completed the import and raised only the last two. So an
+`ACCESS_VIOLATION` — a memory access fault, i.e. a hard crash — appeared where
+there had not been one.
+
+**A rollback was issued** restoring both rows to their original values. **Whether
+it landed was not confirmed.** The row-count check distinguishes it: the real
+account should hold **58** rows if the rollback went in, **56** if it did not.
+Run that before drawing conclusions from the current state.
+
+### What this reordered
+
+`ACCESS_VIOLATION` arrives *first*. That makes the other two consequences rather
+than faults:
+
+```text
+ACCESS_VIOLATION                    <- the actual failure
+Db.TermSession: ...not logged out   <- the process died with connections open
+LbSync.Request: invalid semaphore   <- cleanup running after the crash
+```
+
+The teardown messages are what a badly-dying process prints. Both the vendor's
+original diagnosis and the analysis in this document treated the handle error as
+the thing to explain. It may never have been the fault. **Worth asking whether
+earlier runs also showed an `ACCESS_VIOLATION` that simply was not reported.**
+
+### The finding that matters
+
+**The replacement account has no `image` or `istyle` row and marcin runs clean
+against it, repeatedly.** Removing those same rows from the real account produced
+a memory fault.
+
+So their absence cannot by itself be the cause. The crash depends on some
+combination of the remaining rows with those two gone — which is not something
+reachable by reasoning from outside the binary.
+
+And it is a defect, not a configuration problem: **no preference value, or
+absence of one, should be able to cause an access violation in marcin.** That is
+input handling in the vendor's executable.
+
+### Status: with the vendor
+
+Support asked for the full preference output from both accounts and said they
+would produce the correction. Sent 2026-10-06, as a CSV of all rows for both
+accounts ordered by `pref_category`, `pref_id`, `user_id` so each pair sits
+adjacent, with `DATALENGTH` included because `varchar` comparison ignores
+trailing spaces.
+
+**Sent alongside it — a change log**, because the real account is no longer in
+its original state and a correction built from the dump alone could undo the
+interface fix:
+
+1. `WRKSPC`/`rect` — changed
+2. `WRKSPC`/`max` — changed
+3. `CTRLBAR`/`basebar7` — inserted
+4. `CTRLBAR`/`extbar7` — inserted
+5. `WRKSPC`/`image` + `istyle` — deleted, which caused the `ACCESS_VIOLATION`,
+   then restored
+
+Plus: no marcin match point references a missing table, all 68 resolve.
+
+**Awaiting their response.** Nothing further to do from the database side. The
+interface fix stands and the operator can keep working from the replacement
+account meanwhile.
+
+---
+
 ## Step 5: Clean up
 
 The test rows are harmless but they are scratch, and scratch that stays becomes

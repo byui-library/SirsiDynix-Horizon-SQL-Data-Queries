@@ -1,4 +1,4 @@
-# Session handoff — 2026-10-02
+# Session handoff — 2026-10-06
 
 State of play, and the exact next steps. Read §1 first; it is the only thing
 with an open action on it.
@@ -13,8 +13,23 @@ replacement profile created for them. Both are in
 
 ## 1. The live issue — a Horizon client crash on import
 
-**Status: cause narrowed to one of four preference rows. A two-row test is
-written and ready to run. Nothing has been changed in the database.**
+**Status: half fixed, and now with the vendor. No action on our side.**
+
+Four preference rows were corrected on 2026-10-06 and **the Horizon client
+interface now imports cleanly**. The marcin command-line import still fails. A
+further test — deleting the `WRKSPC`/`image` + `istyle` rows — **made it worse**,
+turning a teardown error into an `ACCESS_VIOLATION`, and was rolled back.
+
+The full preference output for both accounts was sent to Horizon support on
+**2026-10-06** with a change log, at their request; they will produce the
+correction. **Awaiting their response.**
+
+The whole chain — what was changed, what it fixed, the regression, and three
+hypotheses already eliminated — is in the
+[solution's outcome log](../solutions/pref-setting-user-profile-test/README.md#outcome-log).
+Read that rather than re-deriving any of it.
+
+The operator can keep working from the replacement account meanwhile.
 
 ### Where this came from
 
@@ -67,49 +82,83 @@ workspace onto a display that does not exist.
 It is the strongest candidate on the evidence. Do not let it be reported as a
 diagnosis.
 
-### Do this next, in this order
+### Do this next — one check, then wait
 
-**Step 1 — confirm the operator is fully logged out of Horizon.**
-Not optional. If `save_preferences` is set on that account, an open client
-writes its in-memory preferences back when it closes, overwriting the update and
-making a correct fix look like a failure.
+**Confirm the rollback landed.** A rollback restoring `WRKSPC`/`image` +
+`istyle` was issued but never verified:
 
-> **Open question nobody has answered yet:** what is `save_preferences` on the
-> real account? It was in 4a's output and was not recorded. Get it before
-> running anything — it decides whether the eventual fix survives at all.
+```sql
+SELECT ps.user_id, COUNT(*) AS [pref_rows]
+FROM pref_setting ps
+WHERE ps.user_id IN ('CATALOGER', 'CATALOGER_T')
+GROUP BY ps.user_id
+ORDER BY ps.user_id;
+```
 
-**Step 2 — run the audit** in §4f of the solution README. Expect exactly 2 rows.
-Anything else, stop.
+**58** on the real account = the rollback went in. **56** = it did not, and those
+two rows are still missing — which is the state that produced the
+`ACCESS_VIOLATION`. If it reads 56, restore them; the values are in §4f and the
+outcome log.
 
-**Step 3 — run the update** in §4f, inside the transaction. `@@ROWCOUNT` must be
-`2` before you commit. Do not leave the transaction open: every staff client
-reads `pref_setting` at login, so held locks block the library.
+Then wait for support. **Do not change further preference rows in the meantime** —
+they are working from a dump of the current state, and moving it underneath them
+wastes the round trip.
 
-The rollback values are recorded in §4f (`-1928,-8,-632,760` and `1;1`). That is
-the backup for a change this small — no table copy needed.
+### When support replies
 
-**Step 4 — have the operator launch a fresh client and re-run the import.**
+Before applying anything they send:
 
-| Outcome | What to do |
-| --- | --- |
-| Succeeds | Found and fixed. Tell the vendor it was `WRKSPC/rect` — off-screen geometry — and that no bulk correction is needed. |
-| Still crashes | Suspect 1 eliminated for two rows. Move to suspect 2 (`basebar7`/`extbar7`). |
-| Crashes differently | Record the new error verbatim. A changed signature is information. |
+- Check it does not revert the four rows that fixed the interface
+  (`WRKSPC`/`rect`, `WRKSPC`/`max`, `CTRLBAR`/`basebar7`, `CTRLBAR`/`extbar7`).
+  They were told, but a bulk correction built from the dump could still undo them.
+- Apply it with the same contract as everything else here: audit first, row count
+  checked inside a transaction, operator logged out of Horizon so
+  `save_preferences` does not write over it.
 
-**Step 5 — re-run the audit.** If the two rows have reverted to their old
-values, the client wrote its session back and the test never actually ran.
+### Still unanswered, and worth having
+
+- **Does the operator still have a second monitor to the left of their primary
+  display?** `save_preferences = 1`, so the client wrote `-1928,-8,-632,760`
+  itself — that window really was there once. If the monitor is still attached,
+  the geometry was never invalid and `basebar7` is what fixed the interface.
+- **What machine and Windows account does marcin run under?** A path under one
+  user's profile cannot resolve from another's context, which would make
+  per-user paths structurally wrong for marcin rather than merely stale.
+- **Which `import_source` does the failing import use?** Roughly forty exist at
+  differing `ord` priorities.
+- **Did earlier marcin runs also show an `ACCESS_VIOLATION`** that simply was not
+  reported? If so, the teardown messages were never the fault and the first
+  diagnosis was aimed at a symptom.
+- **Did the records from the marcin runs actually land completely?** Those runs
+  ended on unclean teardowns with connections open, which is how partial work
+  survives looking like success.
+
+### If you need to undo the 2026-10-06 change
+
+Rollback is in §4f of the solution README. Four rows: two values restored
+(`-1928,-8,-632,760` and `1;1`) and two inserted rows deleted.
+
+**The operator must be logged out first**, or their client writes its in-memory
+preferences back over whatever you do.
 
 ### What the vendor is still owed
 
-- The ranked suspect list above, with suspect 1 labelled a candidate and **not**
-  a diagnosis.
-- Suspects 2 and 4 are questions *for them*: the control-bar serialisation
-  format is undocumented here, so the field-count difference is reported, not
+- **The result, which is genuinely useful to them**: four rows fixed the client
+  interface — `WRKSPC`/`rect` and `max`, plus `CTRLBAR`/`basebar7` and `extbar7`
+  restored from the replacement account. No bulk repopulate was needed. That is
+  a narrower answer than the prior case they described.
+- **That marcin is a separate, surviving fault**, and that it now completes the
+  import and fails on *teardown* rather than hanging. `Db.TermSession` means
+  session termination, so the work finishes and the shutdown does not.
+- **A question for them**: `CTRLBAR`/`basebar1` carries three more
+  semicolon-delimited fields on the real account than on the replacement. The
+  control-bar serialisation format is undocumented here, so it is reported, not
   interpreted.
-- A correction to something already sent, if it was: the replacement profile is
-  a **fresh default**, not a copy of the operator's rows. That changes what the
-  diff means, and an earlier draft reply overstated the candidate list as a
-  result.
+- **A correction, if the earlier draft reply went out**: the replacement profile
+  is a **fresh default**, not a copy of the operator's rows. An earlier draft
+  overstated the candidate list as a result.
+- Worth mentioning as ruled out, so they do not suggest it: no marcin match
+  point references a missing table — all 68 resolve.
 
 **Do not commit any query output.** `pref_data` holds local filesystem paths —
 one of them contains a username. `.gitignore` blocks `*.csv`/`*.xlsx` for
@@ -124,7 +173,7 @@ commit is one command.
 
 | Path | State |
 | --- | --- |
-| `solutions/pref-setting-user-profile-test/` | §4 (the comparison) and §4e–4f (findings + the two-row test) added today |
+| `solutions/pref-setting-user-profile-test/` | the comparison (§4), the four-row fix (§4f) and the outcome log |
 | `docs/SESSION-HANDOFF.md` | this file |
 
 ```powershell

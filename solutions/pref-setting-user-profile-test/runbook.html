@@ -481,6 +481,36 @@ WHERE user_id = 'CATALOGER'
   <div class="step-head">
     <div class="step-num">16</div>
     <div class="step-title">
+      <h2>2026-10-06 (later) — a regression, and why this is now the vendor's</h2>
+    </div>
+    <span class="chip read">TEXT</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">2026-10-06 (later) — a regression, and why this is now the vendor's</span><button class="copy">Copy</button></div>
+    <pre><code>ACCESS_VIOLATION
+Db.TermSession: not all database 'connections' are properly 'logged out'-- logging them out
+LbSync.Request: invalid semaphore handle</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">17</div>
+    <div class="step-title">
+      <h2>What this reordered</h2>
+    </div>
+    <span class="chip read">TEXT</span>
+  </div>
+  <div class="codewrap">
+    <div class="codebar"><span class="codelabel">What this reordered</span><button class="copy">Copy</button></div>
+    <pre><code>ACCESS_VIOLATION                    &lt;- the actual failure
+Db.TermSession: ...not logged out   &lt;- the process died with connections open
+LbSync.Request: invalid semaphore   &lt;- cleanup running after the crash</code></pre>
+  </div>
+</section>
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">18</div>
+    <div class="step-title">
       <h2>Step 5: Clean up</h2>
     </div>
     <span class="chip write">Writes</span>
