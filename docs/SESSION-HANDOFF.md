@@ -82,27 +82,22 @@ workspace onto a display that does not exist.
 It is the strongest candidate on the evidence. Do not let it be reported as a
 diagnosis.
 
-### Do this next — one check, then wait
+### Do this next — nothing, until support replies
 
-**Confirm the rollback landed.** A rollback restoring `WRKSPC`/`image` +
-`istyle` was issued but never verified:
+**Current state, confirmed 2026-10-06:** the real account holds **56** rows. The
+four interface-fixing rows are in place; `WRKSPC`/`image` + `istyle` are
+**absent**, because the rollback that was meant to restore them did not commit.
 
-```sql
-SELECT ps.user_id, COUNT(*) AS [pref_rows]
-FROM pref_setting ps
-WHERE ps.user_id IN ('CATALOGER', 'CATALOGER_T')
-GROUP BY ps.user_id
-ORDER BY ps.user_id;
-```
+**That is the crashing state, and it was left that way on purpose.** Support is
+building a correction from a dump of exactly this state, and nobody is blocked —
+the operator works from the replacement account, so the `ACCESS_VIOLATION` only
+fires if something runs against the real one.
 
-**58** on the real account = the rollback went in. **56** = it did not, and those
-two rows are still missing — which is the state that produced the
-`ACCESS_VIOLATION`. If it reads 56, restore them; the values are in §4f and the
-outcome log.
+**Do not change any preference row while support holds that dump.** Moving the
+database underneath them wastes the round trip. Restoring the two rows is a
+one-statement change whenever it becomes worth doing; the values are in §4f.
 
-Then wait for support. **Do not change further preference rows in the meantime** —
-they are working from a dump of the current state, and moving it underneath them
-wastes the round trip.
+**Keep the operator on the replacement account** until this is resolved.
 
 ### When support replies
 

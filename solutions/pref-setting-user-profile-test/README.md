@@ -687,10 +687,33 @@ Before the delete it completed the import and raised only the last two. So an
 `ACCESS_VIOLATION` — a memory access fault, i.e. a hard crash — appeared where
 there had not been one.
 
-**A rollback was issued** restoring both rows to their original values. **Whether
-it landed was not confirmed.** The row-count check distinguishes it: the real
-account should hold **58** rows if the rollback went in, **56** if it did not.
-Run that before drawing conclusions from the current state.
+**A rollback was issued and did not commit** — confirmed 2026-10-06: the real
+account holds **56** rows, not the 58 a successful rollback would give.
+
+**So the current state is the crashing one:** the four interface-fixing rows are
+in place, and `WRKSPC`/`image` + `istyle` are absent.
+
+**It was left that way deliberately.** Support is building a correction from a
+dump of exactly this state, and nobody is blocked — the operator is working from
+the replacement account, so the `ACCESS_VIOLATION` only fires if something runs
+against the real one. Stability beats less-broken while the vendor holds the
+dump. Restoring the two rows is a one-statement change whenever that stops being
+true; the values are in the rollback above.
+
+Note that the row count alone is ambiguous — 56 is also the original total. The
+specific rows are what to check:
+
+```sql
+-- Read-only. Expect 4 rows: basebar7, extbar7, max, rect.
+-- image and istyle absent confirms the interface fix is intact and only the
+-- image rows are missing.
+SELECT ps.pref_category, ps.pref_id, ps.pref_data
+FROM pref_setting ps
+WHERE ps.user_id = 'CATALOGER'
+  AND ((ps.pref_category = 'WRKSPC'  AND ps.pref_id IN ('rect','max','image','istyle'))
+    OR (ps.pref_category = 'CTRLBAR' AND ps.pref_id IN ('basebar7','extbar7')))
+ORDER BY ps.pref_category, ps.pref_id;
+```
 
 ### What this reordered
 
@@ -738,8 +761,11 @@ interface fix:
 2. `WRKSPC`/`max` — changed
 3. `CTRLBAR`/`basebar7` — inserted
 4. `CTRLBAR`/`extbar7` — inserted
-5. `WRKSPC`/`image` + `istyle` — deleted, which caused the `ACCESS_VIOLATION`,
-   then restored
+5. `WRKSPC`/`image` + `istyle` — deleted, which caused the `ACCESS_VIOLATION`.
+   A rollback was attempted and **did not commit**, so these two rows are
+   **currently absent** and the dump reflects the crashing state. A correction
+   to that effect was sent after the original change log, which had said they
+   were restored.
 
 Plus: no marcin match point references a missing table, all 68 resolve.
 
