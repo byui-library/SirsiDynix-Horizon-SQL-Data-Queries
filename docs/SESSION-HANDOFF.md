@@ -220,17 +220,10 @@ triggers outright, because `sys.sql_expression_dependencies` cannot see a
 trigger's own parent, so a table-plus-triggers customisation reads as an
 unreferenced orphan. Triggers are the only thing that distinguished this one.
 
-**Still unconfirmed, and cheap:** whether the three triggers are *enabled*
-(`is_disabled = 0`). Present-but-disabled would make the zero/zero agreement
-luck rather than the triggers working.
-
-```sql
-SELECT tr.name AS [trigger_name], OBJECT_NAME(tr.parent_id) AS [on_table],
-       tr.is_disabled
-FROM sys.triggers tr
-WHERE tr.name LIKE 'borrLegal%'
-ORDER BY tr.name;
-```
+**Nothing outstanding.** The last caveat is closed: all three triggers report
+`is_disabled = 0` and all three are attached to `borrLegal_KW`, so the
+zero/zero agreement is the triggers working rather than the absence of any
+writes. The index will stay consistent as borrower records are edited.
 
 ### Toolkit published
 

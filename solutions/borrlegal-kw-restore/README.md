@@ -513,8 +513,15 @@ Run and closed. Measured in production:
 | Check | Result |
 | --- | --- |
 | `borrLegal_KW` and its three triggers | **all four present**, recreated 2026-08-31 between 09:23 and 09:37 |
+| Triggers enabled, and on the right parent | **yes** — `is_disabled = 0` on all three, all attached to `borrLegal_KW` |
 | `borrLegal_KW` row count | **0** |
 | Words with a non-zero `n_borrLegalKW` | **0** |
+
+The enabled check matters more than it looks: without it, zero rows agreeing
+with zero counters could equally mean *the triggers work* or *nothing has
+written to the table yet*. Disabled triggers would have desynced the counter on
+the first borrower edit, silently, after this document had recorded the index as
+healthy.
 
 Counter and contents agree, so there is no drift and the reconciliation queries
 above have nothing to reconcile.
