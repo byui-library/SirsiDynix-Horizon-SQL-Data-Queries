@@ -185,24 +185,52 @@ repository is public.
 
 ## 3. Recently finished — no action needed
 
-### `borrLegal_KW` restore — pushed
+### `borrLegal_KW` — CLOSED 2026-10-19
 
-[`solutions/borrlegal-kw-restore`](../solutions/borrlegal-kw-restore/README.md),
-commit `29be4a6`. The scratch-table cleanup dropped a live local customisation —
-a table plus three DML triggers deployed together in 2023 — and cataloguers lost
-borrower edits three days later.
+[`solutions/borrlegal-kw-restore`](../solutions/borrlegal-kw-restore/README.md).
+The scratch-table cleanup dropped a live local customisation — a table plus
+three DML triggers deployed together in 2023 — and cataloguers lost borrower
+edits three days later.
 
-Two findings worth not re-deriving: the object is `borrLegal_KW`, not
-`borrLegal_WK` (no `*_WK` object exists in the export, and `word.n_borrLegalKW`
-does); and restoring the triggers does **not** repair the keyword counters that
-drifted while they were absent. **Step 4 of that solution is still outstanding**
-if the triggers have been restored — drift produces wrong search results, never
-an error.
+**Verified complete.** All four objects are present, recreated 2026-08-31
+between 09:23 and 09:37, so the recovery that morning restored the triggers as
+well as the table. The table holds **0 rows** and **0 words** carry a non-zero
+`n_borrLegalKW`, so counter and contents agree and nothing drifted.
 
-Its root cause is fixed too: `db-scratch-table-cleanup` now excludes any table
-carrying triggers, because `sys.sql_expression_dependencies` cannot see a
+"Both empty" reads equally as *never populated* and as *the data went with the
+table*, so it was checked rather than assumed: the **training** database
+predates the drop and is **also 0 rows with 0 counters**. The table was already
+empty before 28 August. Nothing was lost; no reindex is needed.
+
+Findings worth not re-deriving:
+
+- The object is `borrLegal_KW`, not `borrLegal_WK`. No `*_WK` object exists in
+  the export; `word.n_borrLegalKW` does.
+- Its columns are exactly `borrower#` and `word#`, both plain `int` — which
+  confirmed the posting-table shape the solution had flagged as an unverified
+  assumption.
+- **It has never held a row, in either database, and dropping it still broke
+  borrower editing.** Its existence matters to Horizon's borrower-edit path;
+  its contents do not. Zero rows, two `int` columns, no UDTs, no declared PK,
+  nothing referencing it — every structural signal says scratch, and it is live.
+  Row count is no defence.
+
+Root cause fixed: `db-scratch-table-cleanup` now excludes any table carrying
+triggers outright, because `sys.sql_expression_dependencies` cannot see a
 trigger's own parent, so a table-plus-triggers customisation reads as an
-unreferenced orphan.
+unreferenced orphan. Triggers are the only thing that distinguished this one.
+
+**Still unconfirmed, and cheap:** whether the three triggers are *enabled*
+(`is_disabled = 0`). Present-but-disabled would make the zero/zero agreement
+luck rather than the triggers working.
+
+```sql
+SELECT tr.name AS [trigger_name], OBJECT_NAME(tr.parent_id) AS [on_table],
+       tr.is_disabled
+FROM sys.triggers tr
+WHERE tr.name LIKE 'borrLegal%'
+ORDER BY tr.name;
+```
 
 ### Toolkit published
 

@@ -506,6 +506,46 @@ ORDER BY w.n_borrLegalKW DESC;
 **No rows from either = nothing drifted.** Record that and stop; it is a real
 result, not a non-event.
 
+### Outcome, 2026-10-19 — nothing drifted, nothing was lost
+
+Run and closed. Measured in production:
+
+| Check | Result |
+| --- | --- |
+| `borrLegal_KW` and its three triggers | **all four present**, recreated 2026-08-31 between 09:23 and 09:37 |
+| `borrLegal_KW` row count | **0** |
+| Words with a non-zero `n_borrLegalKW` | **0** |
+
+Counter and contents agree, so there is no drift and the reconciliation queries
+above have nothing to reconcile.
+
+**"Both empty" is ambiguous on its own**, which is why it was checked rather
+than assumed: it reads equally as "never populated" and as "the data went with
+the dropped table". The training database settles it, because it predates the
+drop — and it is **also 0 rows with 0 counters**. So the table was already empty
+before 28 August. Nothing was lost and no reindex is needed.
+
+The column list also confirmed the assumption this document flagged as
+unverified: the table is exactly `borrower#` and `word#`, both plain `int`, the
+standard posting shape. The `word#` join above would have worked.
+
+### The lesson worth keeping
+
+**`borrLegal_KW` has never held a row — in either database — and dropping it
+still broke borrower editing within three days.**
+
+Its *existence* matters to Horizon's borrower-edit path; its *contents* do not.
+That makes it the ideal false positive for a cleanup script: zero rows, two
+plain `int` columns, no user-defined types, no declared primary key, and nothing
+referencing it. Every structural signal in
+[`db-scratch-table-cleanup`](../db-scratch-table-cleanup/README.md) step 1b says
+scratch. It is live.
+
+Nothing except the triggers distinguishes it, which is exactly why that solution
+now **excludes any table carrying triggers outright** rather than merely
+reporting them. An empty table that breaks the ILS when removed is the trap, and
+row count is no defence against it.
+
 **Rows from either** — do not hand-correct them. Horizon builds these indexes
 with its own reindex utility, and that is the supported repair. Raise it with
 SirsiDynix support, quoting the drift counts. Correcting `word` by hand risks
