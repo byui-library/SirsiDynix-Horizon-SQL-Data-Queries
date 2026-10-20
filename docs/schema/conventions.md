@@ -233,10 +233,15 @@ Two practical consequences of the 255-character limit and the control characters
    `590` into additional rows with an incremented `tagord`. Reassembly means
    ordering by `tagord`; the `245$a` parser used across this repo deliberately
    takes only the lowest-`tagord` segment, which truncates the rare long title.
-2. **`FOR XML PATH` fails on this column.** `CHAR(31)`/`CHAR(30)` are illegal in
-   XML, so the usual pre-2017 string-aggregation workaround throws. Combined with
-   `STRING_AGG` being unavailable at this compatibility level, the practical
-   answer is to ship a separate detail query with one row per tag.
+2. **`FOR XML PATH` entitizes this column rather than failing on it.** The
+   `CHAR(31)`/`CHAR(30)` delimiters come back as `&#x1F;` and `&#x1E;`, so the
+   aggregate holds entity references where the delimiters were. It does **not**
+   throw. Combined with `STRING_AGG` being unavailable at this compatibility
+   level, shipping a separate detail query with one row per tag is still the
+   simpler answer — but because un-escaping is a nuisance, not because the
+   technique is unavailable.
+
+   **Corrected 2026-10-19** — this said *throws* until it was measured.
 
 ---
 
@@ -248,7 +253,7 @@ Confirmed against this database:
 | --- | --- |
 | `STRING_AGG` | **Unavailable** — *"not a recognized built-in function name"* |
 | `STRING_AGG ... WITHIN GROUP` | Rejected even where the function exists |
-| `FOR XML PATH` on `bib.text` | Throws — illegal XML characters |
+| `FOR XML PATH` on `bib.text` | Runs, but **entitizes** `CHAR(31)`/`CHAR(30)` as `&#x1F;`/`&#x1E;` |
 | `CONCAT`, `IIF`, `FORMAT`, `OFFSET/FETCH` | Assume unavailable unless proven |
 
 Write to the lowest common denominator: `CASE` instead of `IIF`, `+` instead of

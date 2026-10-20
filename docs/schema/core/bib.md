@@ -60,9 +60,10 @@ SELECT '|a' + <parsed value> AS [readable]
 Because `text` is `varchar(255)`, **long fields are split across multiple rows**
 with an incremented `tagord`. A `520` summary routinely spans several rows; a
 `245` occasionally does. Reassembly means ordering by `tagord` — and note that
-`FOR XML PATH` cannot do it, because `CHAR(31)`/`CHAR(30)` are illegal in XML,
-while `STRING_AGG` is unavailable at this compatibility level. Ship a detail
-query instead.
+`FOR XML PATH` will do it, but it **entitizes** the `CHAR(31)`/`CHAR(30)`
+delimiters as `&#x1F;`/`&#x1E;` rather than preserving them, while `STRING_AGG`
+is unavailable at this compatibility level. Shipping a detail query avoids both
+problems.
 
 ## Targeting one of several same-`tag` rows
 

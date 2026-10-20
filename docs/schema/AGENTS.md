@@ -227,11 +227,21 @@ This database's **compatibility level is low**. Confirmed unavailable:
 
 - `STRING_AGG` — *"'STRING_AGG' is not a recognized built-in function name."*
   At a slightly higher level it exists but rejects `WITHIN GROUP`.
-- Assume `CONCAT`, `IIF`, `FORMAT`, and `OFFSET/FETCH` are likewise unavailable
-  unless proven otherwise. Prefer `CASE`, `+`, and `TOP`.
-- `FOR XML PATH` is the usual pre-2017 substitute for string aggregation, but it
-  **fails on `bib.text`**, which embeds `CHAR(31)`/`CHAR(30)` control characters
-  that are illegal in XML. It is safe for clean identifiers.
+- `CONCAT`, `IIF`, `FORMAT`, `TRY_CONVERT` and `OFFSET/FETCH` **are available**
+  — measured 2026-10-19 at compatibility level 120. This list previously said to
+  assume they were not. Prefer `CASE`, `+` and `TOP` anyway, so a query travels
+  to an older site unchanged, but do not treat them as absent here.
+- `FOR XML PATH` is the usual pre-2017 substitute for string aggregation. On
+  `bib.text` it **runs**, but it **entitizes** the `CHAR(31)`/`CHAR(30)`
+  delimiters rather than preserving them: the aggregate comes back with
+  `&#x1F;` and `&#x1E;` where the delimiters were, and needs un-escaping before
+  the value means anything.
+
+> **Both points corrected 2026-10-19.** This rule said `FOR XML PATH` *fails* on
+> `bib.text` and that the four functions above should be assumed unavailable.
+> Neither held when measured: `FOR XML PATH` succeeds on a literal `CHAR(31)`
+> and on real `bib.text`, and all four functions work at compatibility level
+> 120. Both claims had been inferred rather than tested.
 
 When you need per-record note text, ship a **second detail query** (one row per
 tag) rather than aggregating into one cell.
